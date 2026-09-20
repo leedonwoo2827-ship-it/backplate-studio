@@ -26,7 +26,6 @@ DEFAULTS: Dict[str, Any] = {
     #   나란히 떠 있을 수 있어야 한다.
     "port": 5278,
     "auth": "codex",
-    "vision_mode": "inline",
     # ★ 모델은 **하나**다. 예전에는 단계마다 sonnet/opus 를 갈라 썼는데, Codex 쪽은
     #   추론 모델 하나뿐이라 단계를 가르는 것은 `effort` 다. 칸은 남겨 둔다 —
     #   백엔드에 새 모델이 생기면 여기만 고치면 된다.

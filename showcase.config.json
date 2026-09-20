@@ -1,7 +1,6 @@
 {
   "port": 5278,
   "auth": "codex",
-  "vision_mode": "inline",
   "models": {
     "caption": "gpt-5.5",
     "link": "gpt-5.5",

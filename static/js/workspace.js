@@ -31,18 +31,9 @@ export async function mount(root) {
   root.appendChild(wsCard);
 
   root.appendChild(el("h2", "sec-title", "연결"));
-  const cCard = el("div", "card");
-  if (h) {
-    const cx = (h.codex || {});
-    cCard.appendChild(el("span", "badge " + (cx.authenticated ? "ok" : "err"),
-      cx.authenticated ? "Codex 로그인됨" : "로그인 필요"));
-    cCard.appendChild(row("계정", cx.email || (cx.installed ? "확인 필요" : "codex 미설치")));
-    cCard.appendChild(row("비전 모드", h.vision_mode));
-    cCard.appendChild(el("div", "card-note",
-      "API 키를 쓰지 않습니다. `codex login` 하나로 대본·그림이 함께 나갑니다."));
-  }
-  root.appendChild(cCard);
-
+  // 카드는 **하나**다. 예전에는 위에 「Claude 로그인」, 아래에 「코덱스 로그인」이
+  // 따로 있었다(인증이 둘이었으니까). 이제 같은 로그인이라 두 장이 같은 말을
+  // 되풀이할 뿐이다 — 단추가 달린 쪽만 남긴다.
   await codexSection(root);
 
   await projectSection(root);
@@ -51,9 +42,13 @@ export async function mount(root) {
     root.appendChild(el("h2", "sec-title", "모델"));
     const mCard = el("div", "card");
     for (const [k, v] of Object.entries(cfg.models || {})) mCard.appendChild(row(k, v));
-    mCard.appendChild(row("스테이지당 예산", `$${cfg.budget_usd.per_stage}`));
+    for (const [k, v] of Object.entries(cfg.effort || {})) mCard.appendChild(row(k + " 강도", v));
     mCard.appendChild(el("div", "card-note",
-      "호출당 최소 비용이 약 $0.24 입니다. 프레임은 항목당 한 번에 묶어 보냅니다."));
+      "콜당 청구되는 돈은 없습니다 — 쓰는 것은 ChatGPT 구독 한도 하나입니다. "
+      + "모델이 하나뿐이라 단계를 가르는 것은 추론 강도입니다."));
+    mCard.appendChild(el("div", "card-note",
+      "프레임은 항목당 한 번에 묶어 보냅니다. 장마다 부르면 왕복만 늘고 "
+      + "결과가 장별로 어긋납니다."));
     root.appendChild(mCard);
   }
 }
@@ -129,11 +124,14 @@ async function codexSection(root) {
     card.appendChild(bar);
 
     card.appendChild(el("div", "card-note",
+      "API 키를 쓰지 않습니다. `codex login` 하나로 대본·목차·지시문·비전·그림이 "
+      + "전부 이 계정에서 나갑니다."));
+    card.appendChild(el("div", "card-note",
       "로그인·로그아웃은 새 창에서 codex 가 돕니다. 브라우저에서 끝낸 뒤 "
       + "«새로고침» 을 눌러야 여기 상태가 바뀝니다. 계정을 바꾸려면 "
       + "**로그아웃한 뒤 다른 계정으로 다시 로그인**하면 됩니다."));
     card.appendChild(el("div", "card-note",
-      "「로그인됨」이 떠도 세션이 죽어 있을 수 있습니다 — 그때 그림이 "
+      "「로그인됨」이 떠도 세션이 죽어 있을 수 있습니다 — 그때 대본도 그림도 "
       + "token_revoked 로 한꺼번에 실패합니다. 할당량 소진이 아니니 다시 "
       + "로그인하세요. 할당량 문제는 429 나 insufficient_quota 로 옵니다."));
   };

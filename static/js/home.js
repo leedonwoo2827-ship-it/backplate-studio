@@ -136,12 +136,14 @@ export async function mount(root) {
       : "앱 폴더의 형제 폴더 (기본값) — git clean 이 산출물을 지울 수 없습니다."));
     status.appendChild(ws);
 
+    // 예전에는 여기에 「비전 모드」 스위치가 있었다 — inline(base64) 이냐
+    // 디스크에 두고 Read 시키느냐. Codex 직접 호출에는 툴이 없어 Read 쪽이
+    // 존재할 수 없으므로 고를 것이 없다. 사실만 적는다.
     const v = el("div", "card");
-    v.appendChild(el("div", "card-title", "비전 모드"));
-    v.appendChild(el("span", "badge brand", h.vision_mode));
-    v.appendChild(el("div", "card-note", h.vision_mode === "inline"
-      ? "프레임을 base64 로 직접 보냅니다 (검증 완료)."
-      : "프레임을 디스크에 두고 Read 시킵니다 (폴백)."));
+    v.appendChild(el("div", "card-title", "비전"));
+    v.appendChild(el("span", "badge brand", "inline"));
+    v.appendChild(el("div", "card-note",
+      "프레임을 base64 로 직접 보냅니다. 한 항목의 프레임은 한 콜에 묶습니다."));
     status.appendChild(v);
   } catch (e) {
     status.innerHTML = "";

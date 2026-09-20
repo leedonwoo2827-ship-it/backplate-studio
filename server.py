@@ -130,7 +130,6 @@ def health() -> Dict[str, Any]:
             "authenticated": st.get("authenticated"),
             "email": st.get("email"),
         },
-        "vision_mode": config.load()["vision_mode"],
         "python": sys.version.split()[0],
     }
 
