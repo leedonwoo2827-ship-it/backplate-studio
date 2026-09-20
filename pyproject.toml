@@ -1,7 +1,7 @@
 [project]
 name = "backplate-showcase"
 version = "0.2.0"
-description = "원고 → 배경판 그림 + 웹 텍스트 → HyperFrames 영상. 한 서버·한 폴더에서 다 끝난다"
+description = "단행본 장별HTML 트레일러 제작 에이전트 — 원고 → 배경판 그림 + 웹 텍스트 → HyperFrames 영상"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "fastapi>=0.110",
