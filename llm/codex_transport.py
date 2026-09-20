@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 import urllib.error
@@ -127,15 +128,48 @@ def _refresh_access_token(refresh_token: str, timeout: int = 30) -> JsonDict:
                 oauth_err = parsed["error"]
         except Exception:
             pass
-        if oauth_err == "invalid_grant":
+        # ★ **401 이면 종류를 가리지 않고 인증 실패다.** 예전에는 `invalid_grant`
+        #   하나만 NotAuthenticated 로 올렸는데, 그러면 나머지 401 이 일반 실패로
+        #   내려가 **배치가 안 멈춘다.** 2026-09-20 실측: 4장 11번째에서 갱신이
+        #   401 로 막혔는데 남은 22장이 하나씩 재시도하며 전부 실패했다(로그인
+        #   문제라는 말은 어디에도 안 나왔다). 갱신이 거부되면 다시 로그인하는
+        #   길밖에 없으니 재시도할 이유가 없다.
+        if e.code == 401 or oauth_err == "invalid_grant":
             raise NotAuthenticated(
-                "refresh_token 이 만료되었습니다 — `codex login` 으로 다시 로그인하세요.",
+                "refresh_token 이 거부되었습니다 — `codex login` 으로 다시 로그인하세요."
+                + (f" ({oauth_err})" if oauth_err else f" (HTTP {e.code})"),
                 status=e.code,
             )
         raise ImageEngineError(
             f"토큰 갱신 실패: HTTP {e.code}" + (f" ({oauth_err})" if oauth_err else ""),
             status=e.code,
         )
+
+
+# ★ 갱신은 **한 번에 하나만.** refresh_token 은 쓰면 회전한다 — 워커 셋이 동시에
+#   만료를 만나 각자 갱신하면 하나만 이기고 **나머지는 소진된 토큰으로 401** 을
+#   받는다. 자물쇠를 잡은 뒤 파일을 다시 읽어, 그사이 누가 이미 갱신해 뒀으면
+#   그 토큰을 쓴다.
+_refresh_lock = threading.Lock()
+
+
+def refresh_once(stale_access: Optional[str]) -> Tuple[JsonDict, Optional[str], Optional[str], Optional[str]]:
+    """(auth, access, account_id, refresh). 남이 이미 갱신했으면 그것을 돌려준다."""
+    with _refresh_lock:
+        auth = _load_auth()
+        access, account_id, refresh = _extract_tokens(auth)
+        if access and access != stale_access:
+            return auth, access, account_id, refresh      # 남이 이미 갱신했다
+        if not refresh:
+            raise NotAuthenticated(
+                "~/.codex/auth.json 에 refresh_token 이 없습니다 — `codex login`.")
+        refreshed = _refresh_access_token(refresh)
+        new_access = refreshed.get("access_token")
+        if not isinstance(new_access, str) or not new_access:
+            raise NotAuthenticated("토큰을 갱신하지 못했습니다 — `codex login`.")
+        _persist_refreshed_auth(auth, refreshed)
+        _, _, new_refresh = _extract_tokens(auth)
+        return auth, new_access, account_id, new_refresh
 
 
 def _persist_refreshed_auth(original: JsonDict, refreshed: JsonDict) -> None:
@@ -248,6 +282,55 @@ def _encode_ref(raw: bytes) -> Tuple[str, str]:
     return base64.b64encode(raw).decode("ascii"), mime
 
 
+# ── 남은 할당량 ────────────────────────────────────────────────────────────
+# ★ 백엔드가 **응답 헤더에 실어 준다.** Codex 확장의 「5h limit 77% left」와 같은
+#   값이다(2026-09-20 대조: used 23% ↔ 77% left, used 38% ↔ 62% left).
+#   이걸 안 읽으면 「얼마나 남았나」에 사람이 눈으로 답하는 수밖에 없다 —
+#   17장을 몇 묶음에 나눠 돌릴지가 이 숫자에 달려 있다.
+_LIMITS: dict = {}
+
+
+def _capture_limits(headers) -> None:
+    def num(key, cast=float):
+        try:
+            return cast(headers.get(key))
+        except (TypeError, ValueError):
+            return None
+
+    got = {
+        "plan": headers.get("x-codex-plan-type"),
+        "used_5h": num("x-codex-primary-used-percent"),
+        "reset_5h_sec": num("x-codex-primary-reset-after-seconds", int),
+        "used_7d": num("x-codex-secondary-used-percent"),
+        "reset_7d_sec": num("x-codex-secondary-reset-after-seconds", int),
+        "at": time.time(),
+    }
+    if got["used_5h"] is None and got["used_7d"] is None:
+        return          # 헤더가 바뀌었거나 안 왔다 — 조용히 넘어간다
+    _LIMITS.update({k: v for k, v in got.items() if v is not None})
+
+
+def limits() -> dict:
+    """가장 최근 응답이 말해 준 할당량. 한 번도 안 불렀으면 빈 dict."""
+    return dict(_LIMITS)
+
+
+def limits_line() -> str:
+    """사람이 읽는 한 줄. 로그에 그대로 찍는다."""
+    if not _LIMITS:
+        return ""
+    def left(used):
+        return f"{max(0.0, 100.0 - float(used)):.0f}%" if used is not None else "?"
+    def when(sec):
+        if sec is None:
+            return ""
+        h, m = divmod(int(sec) // 60, 60)
+        return f" (리셋 {h}시간 {m}분 뒤)" if h else f" (리셋 {m}분 뒤)"
+    return (f"할당량 — 5시간 {left(_LIMITS.get('used_5h'))} 남음"
+            f"{when(_LIMITS.get('reset_5h_sec'))}"
+            f" · 7일 {left(_LIMITS.get('used_7d'))} 남음")
+
+
 # ── SSE 스트림 파싱 ───────────────────────────────────────────────────────────
 def _loosen_read_timeout(resp: Any, timeout: float) -> None:
     try:
@@ -264,6 +347,7 @@ def _stream(headers: dict, body: JsonDict, deadline: float,
     )
     initial = max(1.0, min(30.0, deadline - time.monotonic()))
     resp = urllib.request.urlopen(req, timeout=initial)
+    _capture_limits(resp.headers)
     _loosen_read_timeout(resp, min(stall_timeout, max(1.0, deadline - time.monotonic())))
     try:
         data_buf: List[str] = []

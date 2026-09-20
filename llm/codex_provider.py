@@ -47,8 +47,7 @@ from .codex_transport import (
     _detect_codex_version,
     _extract_tokens,
     _load_auth,
-    _persist_refreshed_auth,
-    _refresh_access_token,
+    refresh_once,
     _sniff_mime,
     _stream,
 )
@@ -362,13 +361,9 @@ class CodexProvider:
             return
         except CodexHTTPError as e:
             # 401 은 접속 순간에 난다 — 아직 아무것도 안 흘렸을 때만 갱신하고 다시.
-            if started or e.status != 401 or not refresh:
+            if started or e.status != 401:
                 raise
-        refreshed = _refresh_access_token(refresh)
-        new_access = refreshed.get("access_token")
-        if not isinstance(new_access, str) or not new_access:
-            raise CodexAuthError("토큰을 갱신하지 못했습니다 — `codex login`.")
-        _persist_refreshed_auth(auth, refreshed)
+        _, new_access, account_id, _ = refresh_once(access)
         yield from self._sse(_build_headers(new_access, account_id, version),
                              payload, deadline)
 

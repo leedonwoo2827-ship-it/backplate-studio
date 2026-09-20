@@ -50,6 +50,7 @@ from llm.codex_transport import (  # noqa: F401
     _loosen_read_timeout,
     _persist_refreshed_auth,
     _refresh_access_token,
+    refresh_once,
     _sniff_mime,
     _stream,
 )
@@ -231,12 +232,11 @@ def _run_codex(prompt: str, size: str, output_format: str,
     try:
         return _attempt(access)
     except ImageEngineError as e:
-        if e.status == 401 and refresh:
-            refreshed = _refresh_access_token(refresh)
-            new_access = refreshed.get("access_token")
-            if isinstance(new_access, str) and new_access:
-                _persist_refreshed_auth(auth, refreshed)
-                return _attempt(new_access)
+        # ★ 갱신은 `refresh_once` 가 **직렬로** 한다. 워커 셋이 동시에 만료를
+        #   만나 각자 갱신하면 refresh_token 이 회전해 나머지가 401 을 받는다.
+        if e.status == 401:
+            _, new_access, account_id, _ = refresh_once(access)
+            return _attempt(new_access)
         raise
 
 

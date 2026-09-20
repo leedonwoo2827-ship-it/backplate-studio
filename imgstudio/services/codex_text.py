@@ -166,12 +166,10 @@ def _run(payload: JsonDict) -> str:
     try:
         return _attempt(access)
     except ImageEngineError as e:
-        if e.status == 401 and refresh:
-            refreshed = _refresh_access_token(refresh)
-            new_access = refreshed.get("access_token")
-            if isinstance(new_access, str) and new_access:
-                _persist_refreshed_auth(auth, refreshed)
-                return _attempt(new_access)
+        if e.status == 401:
+            from llm.codex_transport import refresh_once
+            _, new_access, account_id, _ = refresh_once(access)
+            return _attempt(new_access)
         raise
 
 

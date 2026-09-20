@@ -96,6 +96,41 @@ def _bake(job, *, items: List[Dict[str, Any]], out_dir: Path, size: str,
             "warn": warn}
 
 
+
+def _limits_snapshot(job, tag: str):
+    """지금 남은 할당량.
+
+    ★ 할당량은 **응답 헤더**로만 온다 — 한 번도 안 불렀으면 알 길이 없다.
+      스테이지를 CLI 로 따로 돌리면 그 프로세스는 늘 빈 채로 시작하므로,
+      비어 있을 때만 아주 작은 콜(26토큰쯤)을 한 번 던져 기준점을 잡는다.
+      그게 없으면 「이 장이 몇 %를 썼나」를 영영 못 잰다.
+    """
+    from llm import codex_transport as tr
+    if not tr.limits():
+        try:
+            from llm.codex_provider import CodexProvider
+            CodexProvider(effort="none", retries=0,
+                          total_timeout=60, stall_timeout=30).generate(
+                "t", [{"role": "user", "content": "OK"}])
+        except Exception:      # noqa: BLE001 — 재는 일이 본작업을 막으면 안 된다
+            pass
+    line = tr.limits_line()
+    if line:
+        job.add_log(f"{tag} {line}")
+    return tr.limits()
+
+
+def _limits_delta(job, before) -> None:
+    from llm import codex_transport as tr
+    after = tr.limits()
+    line = tr.limits_line()
+    if line:
+        job.add_log(f"끝 {line}")
+    b, a = (before or {}).get("used_5h"), after.get("used_5h")
+    if b is not None and a is not None and a >= b:
+        job.add_log(f"이 장이 쓴 5시간 할당량: {a - b:.0f}%p")
+
+
 def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = False):
     stage = STAGES["s3c-images-run"]
     from imgstudio.core.config import load_settings
@@ -116,6 +151,12 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
     have = batch_jobs.scan_existing(str(d))
     todo = [it for it in items if int(it["n"]) not in have]
     job.add_log(f"이미 있음 {len(have)}장 · 새로 구움 {len(todo)}장")
+
+    # ★ **시작과 끝의 할당량을 적는다.** 백엔드가 응답 헤더로 알려 주는 값이다
+    #   (Codex 확장의 「5h limit … left」와 같은 숫자). 이 한 줄이 있어야
+    #   「한 장에 몇 %」가 실측으로 남고, 열일곱 장을 몇 묶음에 나눌지가
+    #   추측이 아니라 계산이 된다.
+    before = _limits_snapshot(job, "시작")
     st = load_settings()
     size = norm.get("suggested_size") or st.get("default_size", "auto")
     deck_name = norm.get("deck") or project.get("title") or slug
@@ -158,6 +199,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
             job.add_log(f"썸네일은 {bak.name}/001.png · 002.png "
                         f"— 둘을 견줘 하나를 고릅니다")
 
+    _limits_delta(job, before)
     return write_cache(pid, slug, "s3c-images-run",
                        input_hash=stage.input_hash(pid, slug, project),
                        data={"job": r["job"], "made": r["made"],
