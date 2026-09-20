@@ -24,7 +24,13 @@ start "Developer Showcase Agent (LAN)" cmd /k ""%~f0""
 exit /b
 
 :serve
-set "PORT=5178"
+REM --- Port: one source of truth is showcase.config.json ---------------
+REM The literal below is only the fallback for when python cannot answer
+REM (not set up yet, broken config). Editing the .json is what counts.
+REM 5278, not 5178: the previous generation of this app (260918) still
+REM runs on 5178 here, and two of them must be able to sit side by side.
+set "PORT=5278"
+for /f "usebackq tokens=* delims=" %%P in (`".venv-app\Scripts\python.exe" -c "import core.config as c;print(c.load()['port'])" 2^>nul`) do set "PORT=%%P"
 if not "%SHOWCASE_PORT%"=="" set "PORT=%SHOWCASE_PORT%"
 set "SHOWCASE_OPEN_BROWSER=1"
 set "PYTHONIOENCODING=utf-8"

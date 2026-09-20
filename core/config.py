@@ -20,7 +20,11 @@ CONFIG_PATH = Path(os.environ.get("SHOWCASE_CONFIG") or (APP_DIR / "showcase.con
 LOCAL_PATH = APP_DIR / "showcase.config.local.json"
 
 DEFAULTS: Dict[str, Any] = {
-    "port": 5178,
+    # ★ run.bat · run.sh 가 **이 값을 읽는다.** 예전에는 .bat 안에 숫자가
+    #   따로 박혀 있어서 여기를 고쳐도 아무 일이 없었다(죽은 칸이었다).
+    #   5278 인 이유 — 이 앱의 이전 세대(260918)가 5178 을 쓴다. 둘이
+    #   나란히 떠 있을 수 있어야 한다.
+    "port": 5278,
     "auth": "codex",
     "vision_mode": "inline",
     # ★ 모델은 **하나**다. 예전에는 단계마다 sonnet/opus 를 갈라 썼는데, Codex 쪽은

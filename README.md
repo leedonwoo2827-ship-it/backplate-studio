@@ -12,7 +12,7 @@
 
 ```
 setup.bat        (mac·linux: ./setup.sh)    처음 한 번
-run.bat          (mac·linux: ./run.sh)      → http://localhost:5178
+run.bat          (mac·linux: ./run.sh)      → http://localhost:5278
 ```
 
 **API 키가 필요 없습니다.** ChatGPT 구독 로그인을 그대로 씁니다.

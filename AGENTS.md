@@ -46,15 +46,15 @@ codex login          한 번 실행해 ChatGPT 로그인 (대본·지시문·그
 ## 2. 실행
 
 ```
-run.bat              →  http://localhost:5178
+run.bat              →  http://localhost:5278
 ```
 
 한 서버에 화면 둘이 붙어 있다. 예전에는 터미널이 둘이었다:
 
 | 주소 | 무엇 |
 |---|---|
-| `localhost:5178` | 원고 → 목차 → 지시문 → 덱 → 음성 → 영상 |
-| `localhost:5178/imgstudio` | 그림 생성(Codex OAuth) · 프롬프트 빌더 |
+| `localhost:5278` | 원고 → 목차 → 지시문 → 덱 → 음성 → 영상 |
+| `localhost:5278/imgstudio` | 그림 생성(Codex OAuth) · 프롬프트 빌더 |
 
 **파이썬을 고쳤는데 그대로면** `run.bat`에 `--reload`가 없어서다. 서버를 껐다 켠다.
 
