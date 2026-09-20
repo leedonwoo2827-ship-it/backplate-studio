@@ -8,7 +8,7 @@
   - 로그는 파일에도 append 한다. 브라우저를 새로고침해도 tail 을 다시 그린다.
 
 프로젝트당 동시에 하나만 돈다. 같은 캐시 파일을 두 스테이지가 함께 쓰면
-input_hash 가 꼬이고, 무엇보다 Claude 호출이 두 배로 나간다.
+input_hash 가 꼬이고, 무엇보다 모델 호출이 두 배로 나간다.
 """
 from __future__ import annotations
 

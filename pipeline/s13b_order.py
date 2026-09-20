@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """S13b 상자 차례 맞추기 — **상자 안 글자를 읽어 대본과 짝짓는다.**
 
-    스틸에서 상자를 오려 낸다  →  Claude 가 읽는다  →  대본 문장과 짝짓는다
+    스틸에서 상자를 오려 낸다  →  모델이 읽는다  →  대본 문장과 짝짓는다
                                                       →  등장 시각을 넣는다
 
 ★ **왜 사람이 못 하고, 좌표로도 못 하나.**
@@ -11,7 +11,7 @@
   실제로 2.4 장은 「목표」를 맨 먼저 말하는데 화면에서는 맨 마지막에 떴다.
 
 ★ 좌표만 봐서는 상자 안에 무슨 글자가 있는지 알 수 없다. 그래서 **오려서 본다.**
-  캡션 단계(S3)가 프레임을 보는 것과 같은 길이다(`ClaudeProvider.vision`).
+  캡션 단계(S3)가 프레임을 보는 것과 같은 길이다(`CodexProvider.vision`).
 
 ★ **한 장에 한 번만 부른다.** 상자를 한 장의 세로 시트로 이어 붙여 보낸다 —
   호출당 최소 비용이 있어서 상자마다 부르면 값이 몇 배가 된다(S3 주석과 같은 이유).
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline import s13_motion as motion
 
 PAD = 6          # 상자를 오릴 때 둘레 여유(px) — 글자가 잘리면 못 읽는다
@@ -147,7 +147,7 @@ def _label_hint(pid: int, slug: str, no: int) -> str:
     return "\n".join(out)
 
 
-def run_one(pid: int, slug: str, no: int, p: ClaudeProvider) -> Dict[str, Any]:
+def run_one(pid: int, slug: str, no: int, p: CodexProvider) -> Dict[str, Any]:
     """그 장 하나. 시각을 넣은 상자 목록과 읽어 낸 글자를 돌려준다."""
     sc = motion.scene_of(pid, slug, no)
     boxes, cues = sc["boxes"], sc["cues"]
@@ -206,7 +206,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *,
     if not nos:
         raise RuntimeError("상자가 있는 장이 없습니다")
 
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(project.get("models") or cfg["models"]).get("caption")
               or cfg["models"]["caption"],
         effort=cfg["effort"].get("caption", "medium"),

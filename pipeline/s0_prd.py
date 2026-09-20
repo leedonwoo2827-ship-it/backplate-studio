@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, refs as refs_mod, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, write_cache
 
 MD = re.compile(r"[*_`#>]|^\s*[-•]\s+", re.M)
@@ -202,7 +202,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
               / "llm" / "prompts" / "prd.md").read_text(encoding="utf-8")
 
     job.progress(0, 1, "기획서")
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(project.get("models") or cfg["models"]).get("script")
               or cfg["models"]["script"],
         effort=cfg["effort"].get("decisions", "high"),

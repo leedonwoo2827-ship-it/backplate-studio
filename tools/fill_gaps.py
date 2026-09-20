@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
 from core import config, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import cached_data, read_cache
 from pipeline.s6_script import SCHEMA, clean, est_sec
 
@@ -85,7 +85,7 @@ def main() -> int:
             f"## 요구\n뒤에 이어질 말을 공백 뺀 글자 약 {need}자 만큼 더 써라.\n"
             f"`no` 는 {no} 로 두고, **이어 붙일 부분만** 담아라."
         )
-        p = ClaudeProvider(
+        p = CodexProvider(
             model=(proj.get("models") or cfg["models"])["script"],
             effort=cfg["effort"].get("script", "high"),
             allowed_tools=[], max_turns=1, budget_usd=cfg["budget_usd"]["per_stage"],

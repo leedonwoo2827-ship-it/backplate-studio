@@ -21,21 +21,29 @@ LOCAL_PATH = APP_DIR / "showcase.config.local.json"
 
 DEFAULTS: Dict[str, Any] = {
     "port": 5178,
-    "auth": "claude-code",
+    "auth": "codex",
     "vision_mode": "inline",
+    # ★ 모델은 **하나**다. 예전에는 단계마다 sonnet/opus 를 갈라 썼는데, Codex 쪽은
+    #   추론 모델 하나뿐이라 단계를 가르는 것은 `effort` 다. 칸은 남겨 둔다 —
+    #   백엔드에 새 모델이 생기면 여기만 고치면 된다.
     "models": {
-        "caption": "claude-sonnet-5",
-        "link": "claude-sonnet-5",
-        "decisions": "claude-opus-5",
-        "script": "claude-opus-5",
-        "theme": "claude-opus-5",
-        "imgprompt": "claude-opus-5",
+        "caption": "gpt-5.5",
+        "link": "gpt-5.5",
+        "decisions": "gpt-5.5",
+        "script": "gpt-5.5",
+        "theme": "gpt-5.5",
+        "imgprompt": "gpt-5.5",
     },
     "effort": {
         "caption": "medium", "link": "medium",
         "decisions": "high", "script": "high", "theme": "medium",
         "imgprompt": "medium",
     },
+    # ★ 콜 하나의 시간 예산. 챗 한 마디가 아니라 **한 장짜리 목차·대본**이 기준이다
+    #   (예전 빌더 챗 값 180s 로는 high effort 목차가 중간에 잘린다).
+    #   stall 은 "이만큼 아무것도 안 오면 끊는다".
+    "llm": {"total_timeout_sec": 900, "stall_timeout_sec": 180, "retries": 2},
+    # 구독 정액이라 콜당 비용이 없다. 칸은 호출부 호환으로 남는다.
     "budget_usd": {"per_stage": 1.5, "warn_total": 5.0},
     "frames": {
         "scene_threshold": 0.35, "anchor_interval": 8.0, "min_gap_sec": 1.5,

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, write_cache
 
 # 판단을 물을 만한 장 종류
@@ -167,7 +167,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         if job.canceled:
             warn.append(f"{ci}묶음에서 취소됨")
             break
-        p = ClaudeProvider(
+        p = CodexProvider(
             model=(project.get("models") or cfg["models"]).get("decisions")
                   or cfg["models"]["decisions"],
             effort=cfg["effort"].get("decisions", "high"),

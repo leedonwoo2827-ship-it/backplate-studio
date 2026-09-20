@@ -35,7 +35,7 @@ def esc(s: Any) -> str:
 
 
 def _paras(text: str) -> str:
-    """Claude 가 쓴 것은 **평문**이다. 전부 escape 하고 빈 줄만 문단으로 바꾼다."""
+    """모델이 쓴 것은 **평문**이다. 전부 escape 하고 빈 줄만 문단으로 바꾼다."""
     parts = [p.strip() for p in str(text or "").split("\n\n") if p.strip()]
     return "".join(f"<p>{esc(p)}</p>" for p in parts)
 

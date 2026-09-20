@@ -16,7 +16,7 @@
    색조(H)와 채도(S)를 고정하고 명도(L)만 이분탐색해서 목표 대비비를 맞춘다.
 
 2. **themeSpec 검증·수리** (`normalize_theme`)
-   Claude 는 마크업이 아니라 **선택지**만 낸다 — enum·hex·작은 정수뿐.
+   모델은 마크업이 아니라 **선택지**만 낸다 — enum·hex·작은 정수뿐.
    스펙 밖 값이 와도 거부하지 않고 **수리**한다. 미지 enum은 기본값으로, 잘못된
    hex 는 seed 팔레트로, 대비 미달은 스냅. 무엇을 고쳤는지 warnings 에 남긴다.
    그래야 `"variant":"cinematic"` 같은 환각이 페이지를 깨지 않는다.
@@ -195,7 +195,7 @@ def default_palette(seed_hex: str) -> Dict[str, str]:
 
 
 def normalize_theme(spec: Any, *, seed_hex: str = "#8e2a3e") -> Dict[str, Any]:
-    """Claude 가 낸 themeSpec 을 **거부하지 않고 수리**한다."""
+    """모델이 낸 themeSpec 을 **거부하지 않고 수리**한다."""
     warn: List[str] = []
     spec = spec if isinstance(spec, dict) else {}
     if not isinstance(spec, dict):
@@ -272,7 +272,9 @@ def normalize_theme(spec: Any, *, seed_hex: str = "#8e2a3e") -> Dict[str, Any]:
     out["section_order"] = order + missing
 
     out["locked"] = bool(spec.get("locked"))
-    out["source"] = spec.get("source") if spec.get("source") in ("claude", "manual", "fallback") else "claude"
+    # "claude" 는 옛 산출물에 남아 있는 값이다 — 읽을 때는 받아 주고 새로 쓸 때는 "ai".
+    src = spec.get("source")
+    out["source"] = src if src in ("ai", "claude", "manual", "fallback") else "ai"
     out["warnings"] = warn
     return out
 

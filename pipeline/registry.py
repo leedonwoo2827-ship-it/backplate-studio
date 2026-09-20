@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """스테이지 레지스트리 — DAG · 입력 해시 · 캐시 · resume.
 
-**재실행 가능성이 이 파일의 존재 이유다.** Claude 호출은 비싸다. 한 스테이지를
+**재실행 가능성이 이 파일의 존재 이유다.** 모델 호출은 구독 할당량을 먹는다. 한 스테이지를
 다시 돌린다고 앞뒤가 같이 돌면 안 되고, 프롬프트를 고쳤을 때는 정확히 그
 스테이지와 하위만 stale 이 되어야 한다.
 
 캐시 봉투는 스테이지마다 같다:
 
     { "stage": "s3-caption", "code_version": 3, "input_hash": "sha256:…",
-      "model": "claude-sonnet-5", "cost_usd": 0.184,
+      "model": "gpt-5.5", "cost_usd": 0.0,
       "status": "ok|degraded|skipped", "warnings": [], "data": {…} }
 
 `input_hash` = (상위 스테이지 data + 읽는 project.json 서브셋 + **프롬프트 파일
 원문** + code_version) 의 canonical JSON sha256. 프롬프트를 고치면 그 스테이지가
 stale 이 된다 — 코드를 안 고쳤어도.
 
-★ 규칙: **Claude 스테이지는 stale 이어도 자동 실행하지 않는다.** 돈은 명시적
+★ 규칙: **모델 스테이지는 stale 이어도 자동 실행하지 않는다.** 할당량은 명시적
   클릭에만 쓴다. 결정론 스테이지(ffmpeg·gh·조립·렌더)만 자동 실행 대상이다.
 """
 from __future__ import annotations
@@ -123,7 +123,7 @@ class Stage:
     key: str                      # "s3-caption"
     label: str                    # "쓸 컷 고르기"
     step: str                     # workspace.STEPS 키
-    kind: str                     # "det"(결정론) | "claude" | "ext"(외부 프로세스)
+    kind: str                     # "det"(결정론) | "llm" | "ext"(외부 프로세스)
     deps: List[str] = field(default_factory=list)
     prompt: Optional[str] = None          # llm/prompts/<name>
     reads: List[str] = field(default_factory=list)   # project.json 에서 읽는 키
@@ -131,8 +131,8 @@ class Stage:
     run: Optional[Callable[..., Any]] = None         # None = 아직 구현 전
 
     @property
-    def is_claude(self) -> bool:
-        return self.kind == "claude"
+    def is_llm(self) -> bool:
+        return self.kind == "llm"
 
     def input_hash(self, pid: int, slug: str, project: Dict[str, Any]) -> str:
         payload = {
@@ -155,20 +155,20 @@ _DEFS: List[Stage] = [
           reads=["repo", "sources"], code_version=2),
     # ★ 물어볼 것을 **고정하지 않는다.** 결제가 뼈대만 있는 레포에는 "결제를
     #   넣을까요" 를 물어야 한다. 그래서 재료를 읽은 뒤에 질문을 만든다.
-    Stage("s0a-ask", "물어볼 것", "prd", "claude",
+    Stage("s0a-ask", "물어볼 것", "prd", "llm",
           deps=["s1-frames", "s2-repo"], prompt="ask.md",
           reads=["title", "live_url", "urls", "refs", "items", "repo", "sources", "models"],
           code_version=1),
     # ★ 기획서가 구조보다 먼저다. "누구에게 무엇을 팔 것인가" 는 레포에 안 적혀 있고,
     #   뒤 단계가 그걸 지어낼 수는 없다. 사람이 써 온 prd.md 가 있으면 그게 이긴다.
-    Stage("s0-prd", "발표 기획서", "prd", "claude",
+    Stage("s0-prd", "발표 기획서", "prd", "llm",
           deps=["s0a-ask", "s1-frames", "s2-repo"], prompt="prd.md",
           reads=["title", "live_url", "urls", "refs", "items", "repo", "sources",
                  "models", "audience", "goal", "target_min", "answers",
                  "slide_budget"],
           code_version=2),
     # ★ slide_budget 을 읽는다 — 예산을 바꾸면 이 단계가 stale 이 되어야 한다.
-    Stage("s2b-outline", "구조 설계", "deck", "claude",
+    Stage("s2b-outline", "구조 설계", "deck", "llm",
           deps=["s0-prd", "s1-frames", "s2-repo"], prompt="outline.md",
           reads=["title", "live_url", "urls", "refs", "items", "repo", "sources",
                  "models", "slide_budget"], code_version=3),
@@ -181,14 +181,14 @@ _DEFS: List[Stage] = [
           reads=["title", "refs", "capture_mode"], code_version=2),
     # 캡션은 **영상 레인이 쓸 컷만** 고른다. 몇 컷이 필요한지는 S2b 가 정하므로
     # 구조 설계에 딸린다 — 덱이 바뀌면 골라야 할 컷 수도 바뀐다.
-    Stage("s3-caption", "쓸 컷 고르기", "caption", "claude",
+    Stage("s3-caption", "쓸 컷 고르기", "caption", "llm",
           deps=["s1-frames", "s2b-outline"], prompt="caption.md",
           reads=["items", "language", "models"], code_version=2),
-    Stage("s5-decisions", "기술적 의사결정", "decisions", "claude",
+    Stage("s5-decisions", "기술적 의사결정", "decisions", "llm",
           deps=["s2b-outline"], prompt="decisions.md",
           reads=["items", "repo", "models"], code_version=1),
     # 문체만 갈아 끼우는 단계. 구조(S2b)를 다시 돌리면 순서·영상 배치가 날아간다.
-    Stage("s7-copy", "슬라이드 문구", "deck", "claude",
+    Stage("s7-copy", "슬라이드 문구", "deck", "llm",
           deps=["s2b-outline", "s5-decisions"], prompt="copy.md",
           reads=["slide_tone", "models"], code_version=1),
     # ★ `_fix_ends`(표지·맺음 고정 문구)를 넣었지만 **code_version 은 올리지
@@ -200,10 +200,10 @@ _DEFS: List[Stage] = [
     #   나오므로 돈은 안 든다.
     # code_version 2 — 하십시오체 변환기가 이미 존댓말인 문장을 또 바꾸던 것을
     # 고쳤다(`합니다` → `합니입니다`). 원고를 그대로 살려 쓰게 되면서 드러났다.
-    Stage("s6-script", "내레이션 대본", "script", "claude",
+    Stage("s6-script", "내레이션 대본", "script", "llm",
           deps=["s2b-outline", "s5-decisions"], prompt="script.md",
           reads=["items", "narration", "language", "models"], code_version=2),
-    # ★ 그림 지시문과 그림 받기를 **가른다.** 지시문 쓰기는 Claude 를 부르고
+    # ★ 그림 지시문과 그림 받기를 **가른다.** 지시문 쓰기는 모델을 부르고
     #   (돈이 든다 · 자동 실행하면 안 된다), 받기는 결정론이라 낡으면 저절로
     #   돈다. 한 단계에 묶으면 그림 한 장 넣을 때마다 지시문을 다시 사게 된다.
     # ★ **image_fit 을 반드시 읽는다.** 판이 지시문을 정한다 —
@@ -214,7 +214,7 @@ _DEFS: List[Stage] = [
     # ★ code_version 2→3(2026-09-18): 전면도 글자를 안 박게 바뀌었다
     #   (`s3a_imgprompt.is_plate`). 2 로 두면 「라벨을 인쇄하라」고 적힌 옛
     #   지시문이 캐시에서 그대로 나와 그림에 또 글자가 구워진다.
-    Stage("s3a-imgprompt", "그림 지시문", "images", "claude",
+    Stage("s3a-imgprompt", "그림 지시문", "images", "llm",
           deps=["s2b-outline"], prompt="imgprompt.md",
           reads=["title", "models", "image_fit"], code_version=5),
     # 그림은 이제 **같은 서버**가 만든다(s3c-images-run). 예전에는 다른 앱
@@ -252,14 +252,14 @@ _DEFS: List[Stage] = [
     Stage("s9-render", "완성본 렌더", "dist", "det",
           deps=["s8-assemble"], reads=["slug", "title", "bgm"], code_version=2),
     # ★ S9 뒤에 둔다 — 산출물 폴더(11_완성)에 같이 쌓이고, 오디오(S10)가
-    #   끝나야 장마다 조각 길이가 정해진다. Claude 를 안 써서 "ext"(S10 과 같은
+    #   끝나야 장마다 조각 길이가 정해진다. 모델을 안 써서 "ext"(S10 과 같은
     #   분류) — stale 이면 "다음 할 일"이 자동으로도 돌린다.
     Stage("s12-video", "영상 렌더", "dist", "ext",
           deps=["s8-assemble", "s10-tts"], reads=["slug", "title"], code_version=1),
     # ── 11판(배경판) 전용 ────────────────────────────────────────────────
     # ★ **그림 굽기.** 예전에는 사람이 이미지프롬프트.json 을 들고 다른 앱으로
     #   건너가 한 장씩 눌렀다. 이제 같은 서버 안이라 스테이지로 돈다.
-    #   "ext" 인 이유: Claude 가 아니라 바깥 이미지 백엔드를 부른다(구독 할당량).
+    #   "ext" 인 이유: 텍스트 모델이 아니라 이미지 백엔드를 부른다(같은 구독 할당량).
     Stage("s3c-images-run", "그림 굽기", "images", "ext",
           deps=["s3a-imgprompt", "s3b-images"],
           reads=["slug", "title", "image_fit"], code_version=2),
@@ -311,8 +311,8 @@ def stage_states(pid: int, slug: str, project: Dict[str, Any]) -> List[Dict[str,
             "blocked": bool(missing_deps),
             "missing_deps": missing_deps,
             "implemented": st.run is not None,
-            # ★ Claude 스테이지는 stale 이어도 자동 실행 대상이 아니다
-            "auto": (not st.is_claude) and state in ("missing", "stale") and not missing_deps,
+            # ★ 모델 스테이지는 stale 이어도 자동 실행 대상이 아니다
+            "auto": (not st.is_llm) and state in ("missing", "stale") and not missing_deps,
             "cost_usd": (env or {}).get("cost_usd", 0.0),
             "model": (env or {}).get("model", ""),
             "warnings": (env or {}).get("warnings", []),

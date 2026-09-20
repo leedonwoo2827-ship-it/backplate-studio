@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """S13c 상자 자리 찾기 — **원장에 적어 둔 라벨만 찾아 상자를 놓는다.**
 
-    원장의 라벨 답지  +  격자 얹은 스틸  →  Claude 가 「어디에 있나 · 제대로
+    원장의 라벨 답지  +  격자 얹은 스틸  →  모델이 「어디에 있나 · 제대로
     나왔나」를 답한다  →  잉크로 가장자리를 조인다  →  zones.json
 
 ★ **묻지 않은 것에는 상자가 생기지 않는다.** 이것이 이 단계의 뼈대다.
@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from core import config, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline import s13_motion as motion
 
 # 라벨 하나의 줄들이 이만큼 안에 있으면 같은 묶음으로 본다(백분율 → 픽셀 변환 뒤)
@@ -258,7 +258,7 @@ def _no_overlap(boxes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def run_one(pid: int, slug: str, no: int, p: ClaudeProvider) -> Dict[str, Any]:
+def run_one(pid: int, slug: str, no: int, p: CodexProvider) -> Dict[str, Any]:
     """그 장 하나 — 상자 목록과 라벨 판정을 돌려준다."""
     labs = _labels_of(pid, slug, no)
     if not labs:
@@ -443,7 +443,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *,
         shutil.copy2(motion.zones_path(mp4), bak)
         job.add_log(f"물러 둘 것: {bak.name}")
 
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(project.get("models") or cfg["models"]).get("caption")
               or cfg["models"]["caption"],
         effort=cfg["effort"].get("caption", "medium"),

@@ -33,12 +33,13 @@ export async function mount(root) {
   root.appendChild(el("h2", "sec-title", "연결"));
   const cCard = el("div", "card");
   if (h) {
-    cCard.appendChild(el("span", "badge " + (h.claude_cli ? "ok" : "err"),
-      h.claude_cli ? "Claude Code 로그인됨" : "로그인 필요"));
-    cCard.appendChild(row("CLI", h.claude_cli || "찾지 못함"));
+    const cx = (h.codex || {});
+    cCard.appendChild(el("span", "badge " + (cx.authenticated ? "ok" : "err"),
+      cx.authenticated ? "Codex 로그인됨" : "로그인 필요"));
+    cCard.appendChild(row("계정", cx.email || (cx.installed ? "확인 필요" : "codex 미설치")));
     cCard.appendChild(row("비전 모드", h.vision_mode));
     cCard.appendChild(el("div", "card-note",
-      "API 키를 쓰지 않습니다. 이 PC 의 구독 로그인으로 나갑니다."));
+      "API 키를 쓰지 않습니다. `codex login` 하나로 대본·그림이 함께 나갑니다."));
   }
   root.appendChild(cCard);
 
@@ -149,7 +150,7 @@ async function codexSection(root) {
  *
  * ★ **앱은 지우지 않는다.** 감추기만 하고, 지울 폴더 경로를 정확히 알려 준다.
  *
- * 산출물 폴더에는 몇 시간짜리 Claude 호출 결과와 손으로 고친 대본이 들어 있다.
+ * 산출물 폴더에는 몇 시간짜리 모델 호출 결과와 손으로 고친 대본이 들어 있다.
  * 그것을 버튼 하나로 없애는 코드는 두지 않는다 — 잘못 눌렀을 때 되돌릴 방법이
  * 없기 때문이다. 브라우저 확인창(prompt)도 쓰지 않는다: 새 창이 튀어나오면
  * 사람은 내용을 안 읽고 확인을 누른다. 대신 **경로를 화면에 띄워 놓고** 두 번

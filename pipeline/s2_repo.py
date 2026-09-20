@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
-"""S2 레포 수집 — 결정론. Claude 를 부르지 않는다.
+"""S2 레포 수집 — 결정론. 모델을 부르지 않는다.
 
 **에이전트는 네트워크도 `gh` 도 만지지 않는다.** 여기서 호스트의 기존 `gh` 인증으로
-shallow clone 하고, Claude 스테이지는 그 폴더를 `Read/Grep/Glob` 로만 본다.
-토큰이 에이전트 컨텍스트에 들어갈 일이 없다.
+shallow clone 하고, 뒤 스테이지는 그 폴더에서 뽑은 **트리·커밋·README 요약**만 본다.
+토큰이 모델 컨텍스트에 들어갈 일이 없다.
+
+★ 예전에는 모델이 `Read/Grep/Glob` 로 이 폴더를 직접 훑었다(Claude Code 툴). Codex
+  OAuth 직접 호출에는 툴이 없으므로 지금은 **브리프에 담긴 것만** 본다. 원고(HTML)
+  프로젝트는 이 스테이지를 건너뛰므로 단행본 흐름에는 영향이 없다.
 
 산출:
     02_레포/repo/          shallow clone (gitignore 대상)
     cache/s2-repo.json     파일 트리 · 커밋 · README · 스택 추정
 
-clone 직후 `.env*` · `*.pem` · `id_rsa*` 를 지운다. 지우지 않으면 Claude 가
-`Read` 로 열어 볼 수 있고, 그 내용이 캐시 JSON 과 최종 덱에 새어 나갈 수 있다.
+clone 직후 `.env*` · `*.pem` · `id_rsa*` 를 지운다. 지우지 않으면 요약을 뜨는
+과정에서 딸려 들어가, 그 내용이 캐시 JSON 과 최종 덱에 새어 나갈 수 있다.
 """
 from __future__ import annotations
 
@@ -260,7 +264,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         job.add_log(f"사이트만: {s['url']} — 받을 레포 없음, 자료로만 씁니다")
 
     # ★ 레포가 하나면 예전처럼 `repo/` 에 바로 둔다. 여럿이면 이름별 하위 폴더다 —
-    #   Claude 가 `cwd=repo/` 에서 Read/Grep 할 때 경로가 자연스럽게 갈린다.
+    #   요약을 뜰 때 `repo/` 아래만 훑으면 되도록 경로를 갈라 둔다.
     multi = len(sources) > 1
     repos: List[Dict[str, Any]] = []
     warn: List[str] = []

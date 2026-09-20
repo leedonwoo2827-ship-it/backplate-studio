@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, honorific, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, write_cache
 
 SCHEMA: Dict[str, Any] = {
@@ -281,7 +281,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
 
     # ★ **원고가 대본을 들고 왔으면 그것을 쓴다.** 작가 에이전트가 `data-say` 에
     #   그 장에서 말할 것을 적어 보낸다(`tools/split_sections.mjs` 가 실어 온다).
-    #   그것을 힌트로만 쓰고 Claude 에게 다시 쓰게 하면 두 가지를 잃는다 —
+    #   그것을 힌트로만 쓰고 모델에게 다시 쓰게 하면 두 가지를 잃는다 —
     #   화면 문구를 쓴 쪽이 말도 같이 썼다는 일관성, 그리고 $1 짜리 호출.
     #   2026-08-14 실측: 29장에 9,105자(20분)가 이미 원고에 들어 있었는데
     #   저희는 그걸 버리고 다시 쓰고 있었다.
@@ -294,11 +294,11 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         if not t:
             continue
         old = prior.get(str(s["no"])) or {}
-        # ★ **원고가 이긴다.** 캐시에 있어도 그것이 Claude 가 쓴 것이면 원고로
-        #   갈아 끼운다. 원고는 출처이고 Claude 는 원고가 없을 때의 대타다.
+        # ★ **원고가 이긴다.** 캐시에 있어도 그것이 모델이 쓴 것이면 원고로
+        #   갈아 끼운다. 원고는 출처이고 모델은 원고가 없을 때의 대타다.
         #   예전에는 「캐시에 있으면 넘어간다」를 원고 검사보다 **먼저** 걸어서,
         #   원고가 돌아와도 옛 대본을 붙들고 있었다(2026-08-17 실측: 원고 6,100자가
-        #   되살아났는데 대본은 Claude 가 쓴 2,169자 그대로였다).
+        #   되살아났는데 대본은 모델이 쓴 2,169자 그대로였다).
         #   사람이 화면에서 고친 것은 오버라이드에 따로 얹히므로 여기서 안 잃는다.
         # ★ **발음은 늘 자막에서 만든다.** 원고가 `data-read` 를 실어 보내도 쓰지
         #   않는다(2026-08-17).
@@ -346,7 +346,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         if job.canceled:
             warn.append(f"{ci}묶음에서 취소됨")
             break
-        p = ClaudeProvider(
+        p = CodexProvider(
             model=(project.get("models") or cfg["models"]).get("script")
                   or cfg["models"]["script"],
             effort=cfg["effort"].get("script", "high"),

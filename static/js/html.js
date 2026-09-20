@@ -28,7 +28,7 @@ export const meta = {
        그림 파일은 번호로 이름이 붙는다(`003.png` = 3번 장). 번호가 아직 흔들리는
        자리에 이 버튼을 두면, 만들어 둔 지시문이 다음 장 것이 되어 버린다.
        두 단계를 이어서 돈다 — 지시문을 원장에 채우고(S3a), 아홉 칸 JSON 으로
-       내보낸다(S3b). 원고가 `data-img` 를 들고 왔으면 S3a 는 Claude 를 안 부른다. */
+       내보낸다(S3b). 원고가 `data-img` 를 들고 왔으면 S3a 는 모델을 안 부른다. */
     const mk = el("button", "btn");
     mk.type = "button";
     mk.append(icon("image", 14), el("span", null, "이미지 JSON 만들기"));
@@ -66,7 +66,7 @@ export const meta = {
 
 /* 그림 폴더를 다시 훑어 장에 붙이고, 덱까지 조립한다.
    ★ 조립까지 하는 이유: 붙이기만 하면 화면이 그대로라 "안 됐다" 로 보인다.
-     둘 다 결정론이라 Claude 를 안 부르고 돈이 들지 않는다. */
+     둘 다 결정론이라 모델을 안 부르고 돈이 들지 않는다. */
 async function loadImages(btn) {
   const pid = state.projectId;
   if (!pid) return;

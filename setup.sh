@@ -46,8 +46,7 @@ echo "[6/6] 진단"
 .venv-app/bin/python tools/doctor.py
 
 echo
-echo "다 됐습니다. 로그인 둘은 사람마다 따로 해야 합니다:"
-echo "    claude          한 번 실행해 구독 로그인   (대본·지시문)"
-echo "    codex login     한 번 실행해 ChatGPT 로그인 (그림)"
+echo "다 됐습니다. 로그인은 사람마다 따로 해야 합니다:"
+echo "    codex login     한 번 실행해 ChatGPT 로그인 (대본·지시문·그림 전부)"
 echo
 echo "그다음  ./run.sh   →  http://localhost:5178"

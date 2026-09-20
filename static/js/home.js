@@ -117,13 +117,15 @@ export async function mount(root) {
     const h = await api("/api/health");
     status.innerHTML = "";
 
+    // 로그인은 **하나**다 — codex login. 대본도 그림도 이것으로 나간다.
+    const cx = (h.codex || {});
     const cli = el("div", "card");
-    cli.appendChild(el("div", "card-title", "Claude Code 로그인"));
-    cli.appendChild(el("span", "badge " + (h.claude_cli ? "ok" : "err"),
-      h.claude_cli ? "연결됨" : "확인 필요"));
-    cli.appendChild(el("div", "card-note", h.claude_cli
-      ? "API 키 없이 이 PC 의 구독 인증으로 나갑니다."
-      : "터미널에서 claude 를 한 번 실행해 로그인하세요."));
+    cli.appendChild(el("div", "card-title", "Codex 로그인"));
+    cli.appendChild(el("span", "badge " + (cx.authenticated ? "ok" : "err"),
+      cx.authenticated ? "연결됨" : "확인 필요"));
+    cli.appendChild(el("div", "card-note", cx.authenticated
+      ? "API 키 없이 ChatGPT 구독 인증으로 나갑니다." + (cx.email ? `  (${cx.email})` : "")
+      : "터미널에서 codex login 을 한 번 실행하세요."));
     status.appendChild(cli);
 
     const ws = el("div", "card");

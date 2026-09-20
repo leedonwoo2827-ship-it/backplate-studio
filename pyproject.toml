@@ -6,7 +6,6 @@ requires-python = ">=3.11,<3.14"
 dependencies = [
   "fastapi>=0.110",
   "uvicorn>=0.27",
-  "claude-agent-sdk>=0.2.130",
   "pydantic>=2.6",
   "fonttools>=4.50",
   "brotli>=1.1",

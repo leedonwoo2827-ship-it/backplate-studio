@@ -98,9 +98,8 @@ if errorlevel 1 (
 echo.
 echo Setup complete. Start with run.bat
 echo.
-echo   Two logins are PER PERSON - setup cannot do them for you:
-echo     claude        run once to sign in  ^(script + image directions^)
-echo     codex login   run once to sign in  ^(image generation^)
+echo   One login is PER PERSON - setup cannot do it for you:
+echo     codex login   run once to sign in  ^(script, image directions, images^)
 echo.
 pause
 exit /b 0

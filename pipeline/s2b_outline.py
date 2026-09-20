@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, refs as refs_mod, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, read_cache, write_cache
 
 LANE_KINDS = ("text", "text_image", "video", "code")
@@ -105,7 +105,7 @@ def prd_block(prd: Dict[str, Any]) -> List[str]:
 def build_brief(project: Dict[str, Any], repo: Dict[str, Any],
                 frames: Dict[str, Any], prd: Dict[str, Any] | None = None,
                 root: Path | None = None) -> str:
-    """Claude 에게 줄 재료. **파일 내용은 안 넣는다** — 트리·커밋·README 만.
+    """모델에게 줄 재료. **파일 내용은 안 넣는다** — 트리·커밋·README 만.
     본문이 필요하면 Read/Grep 으로 직접 가져가게 한다(토큰을 아끼고 근거가 정확해진다)."""
     lines: List[str] = []
     lines.append(f"# 프로젝트\n{project.get('title')}")
@@ -218,7 +218,7 @@ def normalize(raw: Dict[str, Any], project: Dict[str, Any]) -> tuple[Dict[str, A
             "note": str(sl.get("note") or "").strip(),
             "video_id": vid,
             "evidence_hint": sl.get("evidence_hint") or None,
-            # 레인 kind 에서 미디어 종류를 파생한다 — Claude 가 따로 쓰지 않는다
+            # 레인 kind 에서 미디어 종류를 파생한다 — 모델이 따로 쓰지 않는다
             "media_kind": next((s["kind"] for s in secs if s["id"] == sec), "text"),
         })
 
@@ -290,7 +290,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
               / "llm" / "prompts" / "outline.md").read_text(encoding="utf-8")
 
     clone = (repo or {}).get("clone_dir")
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(project.get("models") or cfg["models"]).get("script") or cfg["models"]["script"],
         effort=cfg["effort"].get("decisions", "high"),
         cwd=clone,                                   # 레포 안에서 근거를 직접 확인하게
@@ -324,7 +324,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
     # ★ **원고가 넣어 둔 칸을 지킨다.** 이 단계는 s2c(원고 구조 읽기)와 **같은
     #   캐시 자리**를 쓴다. 그런데 여기서 통째로 덮으면 원고가 실어 온 것들이
     #   조용히 날아간다 — `say`(그 장에서 말할 것) · `html`(화면에 박히는 글) ·
-    #   줄 시각까지. 그러면 뒤에서 대본 단계가 빈 것을 보고 Claude 에게 새로
+    #   줄 시각까지. 그러면 뒤에서 대본 단계가 빈 것을 보고 모델에게 새로
     #   쓰게 하고, 열아홉 분짜리 원고가 여섯 분짜리 대본이 된다.
     #   (2026-08-17 실측: 20장 원고 6,249자(19분)가 대본 2,169자(6.6분)로 줄었다.
     #    19장이 초기에 5분대였던 것도 같은 일이었다.)

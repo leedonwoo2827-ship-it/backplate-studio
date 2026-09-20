@@ -265,7 +265,7 @@ export async function mount(root) {
       const b = el("button", "btn sm primary");
       b.type = "button";
       b.append(icon("wand", 11), el("span", null,
-        `${t.c.short} 재료` + (todo.some((x) => x.kind === "claude") ? " (유료)" : "")));
+        `${t.c.short} 재료` + (todo.some((x) => x.kind === "llm") ? " (유료)" : "")));
       b.disabled = !!(job && job.running);
       b.onclick = () => runAll(todo.map((x) => x.key), b);
       filt.appendChild(b);

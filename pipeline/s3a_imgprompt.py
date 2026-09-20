@@ -3,9 +3,9 @@
 
 이 단계의 핵심은 **안 부르는 것**이다. 세 겹으로 안 부른다.
 
-    1. 원고가 `data-img` 를 들고 왔으면      → 그것을 쓴다. Claude 를 안 부른다
+    1. 원고가 `data-img` 를 들고 왔으면      → 그것을 쓴다. 모델을 안 부른다
     2. 원장에 있고 몸통 해시가 같으면        → 옛 프롬프트를 쓴다. 안 부른다
-    3. 그 밖에만                              → Claude 에게 쓰게 한다
+    3. 그 밖에만                              → 모델에게 쓰게 한다
 
 값을 아끼려는 게 아니다. **같은 장의 프롬프트가 이유 없이 바뀌면 이미 그려 둔
 그림과 어긋난다.** 원고를 고쳐 번호가 밀렸을 뿐인 장까지 다시 그리게 되면, 장
@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, ledger as lg, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, write_cache
 
 BATCH = 10
@@ -643,7 +643,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
     job.add_log(f"그림이 필요한 장 {len(rows)}개 — 원장에서 그대로 {len(keep_ids)}개 · "
                 f"새로 쓸 것 {len(ask_ids)}개")
 
-    # ── ③ 남은 것만 Claude 에게 ──────────────────────────────────────────────
+    # ── ③ 남은 것만 모델에게 ──────────────────────────────────────────────
     warn: List[str] = []
     cost = 0.0
     if ask_ids:
@@ -651,7 +651,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         system = (Path(__file__).resolve().parent.parent
                   / "llm" / "prompts" / "imgprompt.md").read_text(encoding="utf-8")
         batches = [want[i:i + BATCH] for i in range(0, len(want), BATCH)]
-        p = ClaudeProvider(
+        p = CodexProvider(
             model=(project.get("models") or {}).get("imgprompt") or cfg["models"]["imgprompt"],
             effort=cfg["effort"]["imgprompt"],
             budget_usd=cfg["budget_usd"]["per_stage"],

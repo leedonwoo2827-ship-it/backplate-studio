@@ -1,14 +1,14 @@
 {
   "port": 5178,
-  "auth": "claude-code",
+  "auth": "codex",
   "vision_mode": "inline",
   "models": {
-    "caption": "claude-sonnet-5",
-    "link": "claude-sonnet-5",
-    "decisions": "claude-opus-5",
-    "script": "claude-opus-5",
-    "theme": "claude-opus-5",
-    "imgprompt": "claude-opus-5"
+    "caption": "gpt-5.5",
+    "link": "gpt-5.5",
+    "decisions": "gpt-5.5",
+    "script": "gpt-5.5",
+    "theme": "gpt-5.5",
+    "imgprompt": "gpt-5.5"
   },
   "effort": {
     "caption": "medium",
@@ -17,6 +17,11 @@
     "script": "high",
     "theme": "medium",
     "imgprompt": "medium"
+  },
+  "llm": {
+    "total_timeout_sec": 900,
+    "stall_timeout_sec": 180,
+    "retries": 2
   },
   "budget_usd": {
     "per_stage": 1.5,

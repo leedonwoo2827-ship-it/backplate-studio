@@ -188,7 +188,7 @@ export async function storyboard(stageHost, rowsHost, cueHost, no) {
   /* ★ 이 단추가 이 화면의 값이다 — **상자 안 글자를 읽어** 대본과 짝짓는다.
        좌표만으로는 상자에 무슨 글자가 있는지 알 수 없어 위→아래로 띄울 수밖에
        없었고, 그래서 31장 중 25장의 차례가 어긋났다. 오려서 보면 된다.
-     ★ 돈이 드는 단계(Claude vision)라 **누를 때만** 돈다. */
+     ★ 돈이 드는 단계(비전)라 **누를 때만** 돈다. */
   const smart = el("button", "btn sm");
   smart.type = "button";
   const smLab = el("span", null, "대본에 맞춰 차례 잡기");

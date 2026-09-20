@@ -110,7 +110,7 @@ export async function mount(root, ctx) {
          건드리지 않는다 — 아래 「지정기 만들기」가 그것을 밑그림으로 깐다. */
     const s0 = step("0", "상자 자리 찾기 (권함)",
       "그림을 만들 때 적어 둔 라벨을 화면에서 찾아 상자를 미리 놓습니다. "
-      + "깨져 나온 글자도 같이 짚어 줍니다. Claude 를 부르므로 값이 듭니다");
+      + "깨져 나온 글자도 같이 짚어 줍니다. 모델을 부르므로 값이 듭니다");
 
     const bFind = el("button", "btn primary");
     bFind.type = "button";

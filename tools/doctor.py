@@ -4,7 +4,7 @@
     python tools/doctor.py
 
 ★ 왜 필요한가. 이 레포는 다른 팀원 자리나 여분 PC 에서도 돌아야 한다. 그런데
-  막히는 자리가 늘 같다 — 로그인 둘(사람마다 따로 해야 한다), 가중치 396MB,
+  막히는 자리가 늘 같다 — 로그인(`codex login` · 사람마다 따로 해야 한다), 가중치 396MB,
   node 22+, ffmpeg. 「안 됩니다」가 아니라 **무엇이 없어서 안 되는지**와
   **무엇을 치면 되는지**를 한 화면에 내놓는다.
 
@@ -78,7 +78,7 @@ def check_binaries() -> None:
         ("git", ["git", "--version"], "https://git-scm.com", True),
         ("git-lfs", ["git", "lfs", "version"], "git lfs install", False),
         ("gh", ["gh", "--version"], "레포 수집에만 씁니다", False),
-        ("codex", ["codex", "--version"], "npm i -g @openai/codex", False),
+        ("codex", ["codex", "--version"], "npm i -g @openai/codex", True),
     ):
         v = _ver(cmd)
         row(OK if v else (BAD if hard else WARN), name, v, "" if v else why)
@@ -117,7 +117,6 @@ def check_python_packages() -> None:
     for mod, label, why in (
         ("fastapi", "fastapi", "pip install -e ."),
         ("uvicorn", "uvicorn", "pip install -e ."),
-        ("claude_agent_sdk", "claude-agent-sdk", "pip install -e ."),
         ("fontTools", "fonttools", "pip install -e ."),
         ("sqlalchemy", "SQLAlchemy", "이미지 스튜디오에 필요 — pip install -e ."),
         ("httpx", "httpx", "pip install -e ."),
@@ -170,36 +169,44 @@ def check_assets() -> None:
 
 
 def check_logins() -> None:
-    # Codex — 파일이 있는지가 아니라 **살아 있는지**를 본다. 만료된 토큰이
-    # 파일로는 멀쩡해 보인다(2026-09-18 에 실제로 겪었다: token_revoked).
+    """로그인은 **하나**다 — `codex login`. 그림도 대본도 비전도 이것으로 나간다.
+
+    ★ 파일이 있는지가 아니라 **살아 있는지**를 본다. 만료된 토큰이 파일로는 멀쩡해
+      보인다(2026-09-18 에 겪었다: token_revoked 로 배치가 통째로 죽었는데 진단은
+      「정상」이라고 했다). 그래서 실제로 한 콜 찔러 본다.
+    """
     auth = Path.home() / ".codex" / "auth.json"
     if not auth.is_file():
-        row(WARN, "Codex 로그인", "", "codex login  (그림 생성에 필요)")
-    else:
-        try:
-            d = json.loads(auth.read_text(encoding="utf-8"))
-            has = bool((d.get("tokens") or {}).get("access_token"))
-            row(OK if has else WARN, "Codex 로그인",
-                (d.get("last_refresh") or "")[:10],
-                "" if has else "codex login")
-        except Exception:
-            row(WARN, "Codex 로그인", "", "codex login")
+        row(BAD, "Codex 로그인", "", "codex login")
+        return
 
-    # ★ **앱과 같은 방법으로 찾는다.** 처음엔 shutil.which("claude") 만 봤는데,
-    #   이 PC 에는 PATH 에 없고 **VSCode 확장 안**에 네이티브 바이너리가 있었다.
-    #   앱(llm/claude_provider.find_cli)은 그걸 찾아 잘 쓰는데 진단만 「없음」이라
-    #   했다 — 멀쩡한 것을 없다고 하면 사람이 헛일을 한다(2026-09-18 실측).
+    stamp = ""
+    has = False
     try:
-        from llm.claude_provider import find_cli
-        exe = find_cli()
+        d = json.loads(auth.read_text(encoding="utf-8"))
+        has = bool((d.get("tokens") or {}).get("access_token"))
+        stamp = (d.get("last_refresh") or "")[:10]
     except Exception:  # noqa: BLE001
-        exe = None
-    if exe:
-        where = "VSCode 확장" if ".vscode" in str(exe) else "PATH"
-        row(OK, "Claude 실행파일", f"{where}")
-    else:
-        row(WARN, "Claude 실행파일", "",
-            "터미널에서 `claude` 를 한 번 실행해 로그인 — 대본·지시문 단계에 필요")
+        pass
+    if not has:
+        row(BAD, "Codex 로그인", stamp, "codex login")
+        return
+
+    # 실제 한 콜. 구독 할당량을 아주 조금 쓴다 — 건너뛰려면
+    # SHOWCASE_DOCTOR_NO_PING=1 로 돌린다.
+    if os.environ.get("SHOWCASE_DOCTOR_NO_PING"):
+        row(WARN, "Codex 로그인", f"{stamp} (ping 생략)",
+            "SHOWCASE_DOCTOR_NO_PING 이 켜져 있어 세션이 살아 있는지는 확인 못 했습니다")
+        return
+    try:
+        from llm.codex_provider import CodexProvider
+
+        ok, msg = CodexProvider(effort="none", retries=0,
+                                total_timeout=60, stall_timeout=30).ping()
+    except Exception as e:  # noqa: BLE001
+        ok, msg = False, f"{type(e).__name__}: {e}"
+    row(OK if ok else BAD, "Codex 로그인", f"{stamp} · {msg}"[:70],
+        "" if ok else "codex login  (세션이 죽어 있습니다 — 할당량 문제가 아닙니다)")
 
 
 def check_workspace() -> None:

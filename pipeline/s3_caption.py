@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, workspace as ws
-from llm.claude_provider import ClaudeProvider
+from llm.codex_provider import CodexProvider
 from pipeline.registry import STAGES, cached_data, write_cache
 
 SCHEMA: Dict[str, Any] = {
@@ -120,7 +120,7 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
         n_frames = len([p for p in parts if p.get("image")])
         want = min(max(wants.get(vid, 1), 1), n_frames)
 
-        p = ClaudeProvider(
+        p = CodexProvider(
             model=(project.get("models") or cfg["models"]).get("caption")
                   or cfg["models"]["caption"],
             effort=cfg["effort"].get("caption", "medium"),

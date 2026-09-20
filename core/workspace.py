@@ -70,7 +70,7 @@ STEPS: Dict[str, Tuple[str, str]] = {
 
 CACHE = "_cache"
 LOGS = "_logs"
-VISION = "vision"          # 01_프레임/vision/ — Claude 로 보낼 축소본
+VISION = "vision"          # 01_프레임/vision/ — 모델로 보낼 축소본
 REPO = "repo"              # 02_레포/repo/    — shallow clone
 ASSETS = "assets"          # 11_완성/assets/
 
@@ -335,7 +335,7 @@ F_HIDDEN = "_감춤"
 def hide_project(pid: int, slug_name: str) -> str:
     """★ **지우지 않는다.** 목록에서 감추고, 폴더 경로를 돌려준다.
 
-    산출물에는 몇 시간짜리 Claude 호출 결과와 손으로 고친 대본이 들어 있다.
+    산출물에는 몇 시간짜리 모델 호출 결과와 손으로 고친 대본이 들어 있다.
     그것을 버튼 하나로 지우는 코드는 두지 않는다 — 잘못 눌렀을 때 되돌릴 방법이
     없기 때문이다. 앱은 시야에서 치우기만 하고, 폴더는 사람이 탐색기에서 직접
     지운다. 마음이 바뀌면 이 표시 파일만 지우면 목록에 다시 나온다.

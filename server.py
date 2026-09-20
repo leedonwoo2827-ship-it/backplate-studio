@@ -117,14 +117,19 @@ _attach_imgstudio(app)
 # ── 건강 확인 ──────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health() -> Dict[str, Any]:
-    from llm.claude_provider import find_cli
+    from imgstudio.services import codex_auth
 
-    exe = find_cli()
+    # 로그인은 **하나**다. 그림도 대본도 같은 `codex login` 을 쓴다.
+    st = codex_auth.status()
     return {
         "ok": True,
         "app_dir": str(APP_DIR),
         "workspace": ws.describe(),
-        "claude_cli": str(exe) if exe else None,
+        "codex": {
+            "installed": st.get("installed"),
+            "authenticated": st.get("authenticated"),
+            "email": st.get("email"),
+        },
         "vision_mode": config.load()["vision_mode"],
         "python": sys.version.split()[0],
     }
@@ -302,7 +307,7 @@ class RecopyIn(BaseModel):
 @app.post("/api/projects/{pid}/recopy/{no}")
 def recopy_slide(pid: int, no: int, body: RecopyIn) -> Dict[str, Any]:
     from pipeline.s7_copy import DEFAULT_TONE, SCHEMA, TONES, build_brief, clean
-    from llm.claude_provider import ClaudeProvider
+    from llm.codex_provider import CodexProvider
 
     doc = _find(pid)
     slug = doc["slug"]
@@ -323,7 +328,7 @@ def recopy_slide(pid: int, no: int, body: RecopyIn) -> Dict[str, Any]:
         brief += ("\n\n# 사람이 준 지시 — **이걸 최우선으로 따른다**\n"
                   + body.hint.strip())
 
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(doc.get("models") or cfg["models"]).get("script") or cfg["models"]["script"],
         effort=cfg["effort"].get("script", "high"),
         allowed_tools=[], max_turns=1, budget_usd=cfg["budget_usd"]["per_stage"],
@@ -508,7 +513,7 @@ def speak_roman_all(pid: int, apply: bool = False) -> Dict[str, Any]:
 
     ★ 오버라이드에 쓴다(대본 캐시가 아니다). 스테이지를 다시 돌려도 남는다.
 
-    ★ Claude 를 부르지 않는다. 결정론이라 공짜이고, 몇 번 눌러도 같은 결과다
+    ★ 모델을 부르지 않는다. 결정론이라 공짜이고, 몇 번 눌러도 같은 결과다
       (이미 바뀐 장에는 영문이 없어 그대로다).
     """
     from core.roman import speak_roman
@@ -563,7 +568,7 @@ def pronounce_report(pid: int) -> Dict[str, Any]:
       여기다. 더 앞에서 뽑으면 아직 안 고친 장이 빠지고, 더 뒤에서 뽑으면 이미
       영상을 굽고 나서라 다음 과목에 못 쓴다.
 
-    ★ Claude 를 부르지 않는다. 결정론이라 공짜다 — 몇 번 눌러도 손해가 없다.
+    ★ 모델을 부르지 않는다. 결정론이라 공짜다 — 몇 번 눌러도 손해가 없다.
     """
     from render import pronounce
 
@@ -616,14 +621,14 @@ def rescript_slide(pid: int, no: int, body: RescriptIn) -> Dict[str, Any]:
       안 들 때 그 한 장만 고치는 자리가 있어야 한다(2026-08-14).
 
     ★ **원고가 준 대본이 있으면 늘 그것이다.** 작가 에이전트가 `data-say` 에 적어
-      보낸 것이 있으면 Claude 를 안 부른다 — 돈을 쓰고도 더 나빠지기 때문이다.
+      보낸 것이 있으면 모델을 안 부른다 — 돈을 쓰고도 더 나빠지기 때문이다.
       2026-08-14 실측: 거시경제학 장에 대고 「이 서비스의 화면은 두 갈래로
       나뉩니다… 내 경력 하나를 들여다보는」 이 나왔다($0.22). 이 앱의 대본
       프롬프트(`script.md`)는 **개발자 포트폴리오 발표**용이라 책 강의에 안 맞는다.
       AI 로 다시 쓰려면 **사람이 지시를 적어야** 한다 — 그때만 부른다.
     """
     from pipeline.s6_script import SCHEMA, build_brief, budgets, clean, est_sec
-    from llm.claude_provider import ClaudeProvider
+    from llm.codex_provider import CodexProvider
 
     doc = _find(pid)
     slug = doc["slug"]
@@ -658,7 +663,7 @@ def rescript_slide(pid: int, no: int, body: RescriptIn) -> Dict[str, Any]:
         brief += ("\n\n# 사람이 준 지시 — **이걸 최우선으로 따른다**\n"
                   + body.hint.strip())
 
-    p = ClaudeProvider(
+    p = CodexProvider(
         model=(doc.get("models") or cfg["models"]).get("script") or cfg["models"]["script"],
         effort=cfg["effort"].get("script", "high"),
         allowed_tools=[], max_turns=1, budget_usd=cfg["budget_usd"]["per_stage"],
@@ -1527,7 +1532,7 @@ def post_outline(pid: int, body: OutlineIn) -> Dict[str, Any]:
 
     # ★ **원고가 실어 온 칸을 되살린다.** 화면이 보내는 것은 번호·제목·갈래뿐이라
     #   `say`(그 장에서 말할 것)·줄 시각·그림 이름표가 통째로 빠져 있다. 그대로
-    #   쓰면 대본 단계가 빈 것을 보고 Claude 에게 새로 쓰게 하고, 열일곱 분짜리
+    #   쓰면 대본 단계가 빈 것을 보고 모델에게 새로 쓰게 하고, 열일곱 분짜리
     #   원고가 여섯 분짜리 대본이 된다(2026-08-17 실측 · 21장에서 실제로 났다).
     #   되살릴 원본은 원고 쪽 캐시다 — 목차를 몇 번 덮어도 거긴 안 바뀐다.
     from pipeline.s2c_capture import manuscript_map, restore
@@ -1662,7 +1667,7 @@ def import_outline(pid: int, body: OutlineImport) -> Dict[str, Any]:
 # ── 초안 통째로 (밖에서 다 짜 와서 넣기) ──────────────────────────────────
 #
 # ★ **목차 + 문구 + 대본을 한 파일로.** 이 앱을 안 거치고 다른 데서 전부 짜
-#   온 경우를 위한 문이다. 넣으면 Claude 단계를 하나도 안 돌리고 바로 굽기로
+#   온 경우를 위한 문이다. 넣으면 모델 단계를 하나도 안 돌리고 바로 굽기로
 #   갈 수 있다.
 #
 # 캐시를 직접 쓴다(오버라이드가 아니다). 뒤 단계가 읽는 것이 캐시라서,
@@ -1814,7 +1819,7 @@ class BudgetIn(BaseModel):
 def post_budget(pid: int, body: BudgetIn) -> Dict[str, Any]:
     """장 예산. ★ 이 값을 바꾸면 구조 설계가 stale 이 되고, 눌러서 다시 짜야 한다.
 
-    자동으로 다시 돌리지 않는다 — Claude 단계는 명시적 클릭에만 돈을 쓴다.
+    자동으로 다시 돌리지 않는다 — 모델 단계는 명시적 클릭에만 돈을 쓴다.
     """
     from pipeline.s2b_outline import slide_budget
 
@@ -1840,7 +1845,7 @@ def post_image_swap(pid: int, body: SwapIn) -> Dict[str, Any]:
     4장만 그려 놓고 켜도 화면이 비지 않는다. 제목·음성·자막·전환은 어느 쪽이든
     그대로다(그림은 몸통 자리만 차지한다).
 
-    ★ 조립(S8)만 다시 돌리면 된다 — 결정론이라 돈이 안 든다. Claude 단계는
+    ★ 조립(S8)만 다시 돌리면 된다 — 결정론이라 돈이 안 든다. 모델 단계는
       아무것도 낡지 않는다. 그래서 켜고 끄며 둘을 견줘 볼 수 있다.
 
     ★ `image_fit` 은 **한 번 정하면 안 바꾸는 값**이다(2026-08-29). 그림이
@@ -2024,7 +2029,7 @@ def pronounce_all(pid: int, apply: bool = False) -> Dict[str, Any]:
     ★ 왜 자막과 갈랐나 — 손이 가는 순서가 「자막을 읽고 고친다 → 그 자막대로
       발음을 만든다」이기 때문이다(2026-08-17). 한 번에 만들면 자막을
       고쳐도 발음은 옛 자막에서 나온 채로 남는다.
-    ★ Claude 를 부르지 않는다. 결정론이라 공짜이고 몇 초다 — 자막을 고칠 때마다
+    ★ 모델을 부르지 않는다. 결정론이라 공짜이고 몇 초다 — 자막을 고칠 때마다
       다시 눌러도 손해가 없다.
     ★ `apply=false` 면 **세어만 본다.** 무엇이 덮이는지 먼저 말하고 묻는다 —
       이 앱에서 조용히 덮은 적이 있고(시각 186개), 그 뒤로는 늘 먼저 말한다.
@@ -2263,7 +2268,7 @@ def motion_order(pid: int, no: int = 0) -> Dict[str, Any]:
     """상자 안 글자를 **읽어서** 대본과 짝짓고 차례를 잡는다.
 
     ★ `no` 를 주면 그 장만, 안 주면 상자가 있는 장 전부. 돈이 드는 단계라
-      (Claude vision) 명시적으로 눌러야 돈다 — 자동 실행 대상이 아니다.
+      (비전) 명시적으로 눌러야 돈다 — 자동 실행 대상이 아니다.
     """
     doc = _find(pid)
     from pipeline import s13b_order
@@ -2284,7 +2289,7 @@ def motion_zones_auto(pid: int, no: int = 0, apply: bool = False) -> Dict[str, A
 
     ★ `zones.json` 을 건드리지 않는다. 찾은 상자는 `<stem>-zones.gen.json` 에 두고
       「지정기 만들기」가 그것을 밑그림으로 깐다 — 사람이 고친 것을 덮지 않는다.
-    ★ 돈이 드는 단계라(Claude vision) 눌러야 돈다. `no` 를 주면 그 장만.
+    ★ 돈이 드는 단계라(비전) 눌러야 돈다. `no` 를 주면 그 장만.
     """
     doc = _find(pid)
     from pipeline import s13c_zones
@@ -2319,7 +2324,7 @@ def get_file(pid: int, rel: str):
     """프로젝트 폴더 안의 산출물 서빙(프레임·그림·음성·자막).
 
     ★ 경로 탈출 차단이 이 함수의 존재 이유다. `rel` 은 덱 데이터에서 오고,
-      덱 데이터에는 Claude 가 쓴 값이 섞인다. 절대경로·`..` 을 모두 거부하고
+      덱 데이터에는 모델이 쓴 값이 섞인다. 절대경로·`..` 을 모두 거부하고
       resolve 후 프로젝트 폴더 안인지 다시 확인한다.
     """
     doc = _find(pid)

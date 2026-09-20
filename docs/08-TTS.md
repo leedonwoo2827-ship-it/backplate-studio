@@ -15,7 +15,7 @@ setup.bat
   │    설치돼 있으면(← .venv + assets\onnx\vocoder.onnx)
   │    tools\wire_tts.py 가 showcase.config.local.json 에
   │    자동으로 경로를 채운다
-  └─ Claude 로그인 확인                             [3/3]
+  └─ Codex 로그인 확인                              [3/3]
 ```
 
 ## 처음 설치할 때

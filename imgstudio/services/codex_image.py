@@ -11,35 +11,50 @@ API 키가 필요 없고 사용량은 사용자의 ChatGPT 구독 한도에서 �
 > 공개 SDK 가 아니므로 변경될 수 있다. 구현은 오픈소스 chatgpt-imagegen 의 검증된
 > 메커니즘(토큰 로드/갱신·헤더·페이로드·SSE 파싱)을 차용했다.
 
+★ 토큰·헤더·SSE 는 이제 **`llm/codex_transport.py`** 에 산다. 파이프라인(대본·목차·
+  비전)도 같은 전송을 쓰는데 `llm/` 이 `imgstudio/` 를 import 하면 의존이 거꾸로라
+  한 칸 아래로 내렸다. 이 파일은 **그 이름들을 그대로 re-export** 하므로
+  `codex_text.py` · `batch_jobs.py` · 라우트는 예전처럼 여기서 가져다 쓰면 된다.
+
 호출부(routes)는 blocking 함수를 asyncio.to_thread 로 감싸 이벤트루프를 막지 않는다.
 """
 from __future__ import annotations
 
 import base64
-import json
 import os
 import re
 import time
-import uuid
 import urllib.error
-import urllib.parse
-import urllib.request
-from pathlib import Path
-from typing import Any, Iterator, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from ..core.atomic_io import atomic_write_json
+# ── 전송 계층 re-export ───────────────────────────────────────────────────────
+# 이 목록이 곧 예전에 이 파일이 들고 있던 것들이다. 이름을 바꾸지 않는다 —
+# `codex_text.py:17-28` 이 밑줄 함수까지 여기서 가져간다.
+from llm.codex_transport import (  # noqa: F401
+    AUTH_PATH,
+    CODEX_BACKEND,
+    CODEX_MODEL,
+    FALLBACK_UA,
+    FALLBACK_VERSION,
+    ImageEngineError,
+    JsonDict,
+    NotAuthenticated,
+    OAUTH_CLIENT_ID,
+    OAUTH_TOKEN_URL,
+    VERSION_PATH,
+    _build_headers,
+    _detect_codex_version,
+    _encode_ref,
+    _extract_tokens,
+    _load_auth,
+    _loosen_read_timeout,
+    _persist_refreshed_auth,
+    _refresh_access_token,
+    _sniff_mime,
+    _stream,
+)
 
-# ── 상수 (chatgpt-imagegen 차용) ─────────────────────────────────────────────
-CODEX_BACKEND = "https://chatgpt.com/backend-api/codex/responses"
-OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token"
-OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"  # Codex CLI 공개 client id
-FALLBACK_VERSION = "0.130.0"
-FALLBACK_UA = f"codex_cli_rs/{FALLBACK_VERSION} (Windows 11; x64) image-studio"
-AUTH_PATH = Path(os.environ.get("CODEX_AUTH_PATH", str(Path.home() / ".codex" / "auth.json")))
-VERSION_PATH = Path.home() / ".codex" / "version.json"
-
-CODEX_MODEL = os.environ.get("CODEX_IMAGE_MODEL", "gpt-5.5")
-
+# ── 이미지에만 있는 상수 ──────────────────────────────────────────────────────
 # image_generation 툴이 받는 크기 규칙(공식 문서 기준).
 #   · 가로·세로 모두 **16의 배수**
 #   · 비율은 **1:3 ~ 3:1** 사이
@@ -68,149 +83,6 @@ CODEX_BACKGROUND = os.environ.get("CODEX_IMAGE_BACKGROUND", "opaque")
 DEFAULT_TOTAL_TIMEOUT = int(os.environ.get("IMAGE_TIMEOUT", "300"))
 DEFAULT_STALL_TIMEOUT = 120.0
 REF_B64_SOFT_CAP = 8 * 1024 * 1024  # 참조 이미지 base64 상한(초과 시 경고만)
-
-JsonDict = dict
-
-
-class ImageEngineError(RuntimeError):
-    def __init__(self, message: str, status: Optional[int] = None):
-        super().__init__(message)
-        self.status = status
-
-
-class NotAuthenticated(ImageEngineError):
-    pass
-
-
-# ── 토큰 로드/추출/갱신 ───────────────────────────────────────────────────────
-def _load_auth() -> JsonDict:
-    try:
-        with open(AUTH_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except FileNotFoundError:
-        raise NotAuthenticated(
-            "~/.codex/auth.json 이 없습니다. 터미널에서 `codex login` 으로 "
-            "ChatGPT 계정에 로그인하세요."
-        )
-    except Exception as e:
-        raise ImageEngineError(f"auth.json 읽기 실패: {e}")
-
-
-def _extract_tokens(auth: JsonDict) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    tokens = auth.get("tokens") if isinstance(auth.get("tokens"), dict) else {}
-    access = tokens.get("access_token") if isinstance(tokens.get("access_token"), str) else None
-    account_id = tokens.get("account_id") if isinstance(tokens.get("account_id"), str) else None
-    refresh = tokens.get("refresh_token") if isinstance(tokens.get("refresh_token"), str) else None
-    return access, account_id, refresh
-
-
-def _refresh_access_token(refresh_token: str, timeout: int = 30) -> JsonDict:
-    data = urllib.parse.urlencode({
-        "client_id": OAUTH_CLIENT_ID,
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-        "scope": "openid profile email",
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        OAUTH_TOKEN_URL, data=data, method="POST",
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": FALLBACK_UA,
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="ignore")
-        oauth_err = ""
-        try:
-            parsed = json.loads(body)
-            if isinstance(parsed, dict) and isinstance(parsed.get("error"), str):
-                oauth_err = parsed["error"]
-        except Exception:
-            pass
-        if oauth_err == "invalid_grant":
-            raise NotAuthenticated(
-                "refresh_token 이 만료되었습니다 — `codex login` 으로 다시 로그인하세요.",
-                status=e.code,
-            )
-        raise ImageEngineError(
-            f"토큰 갱신 실패: HTTP {e.code}" + (f" ({oauth_err})" if oauth_err else ""),
-            status=e.code,
-        )
-
-
-def _persist_refreshed_auth(original: JsonDict, refreshed: JsonDict) -> None:
-    tokens = original.get("tokens")
-    if not isinstance(tokens, dict):
-        tokens = {}
-        original["tokens"] = tokens
-    for k in ("access_token", "refresh_token", "id_token"):
-        if isinstance(refreshed.get(k), str):
-            tokens[k] = refreshed[k]
-    original["last_refresh"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    try:
-        atomic_write_json(str(AUTH_PATH), original, indent=2)
-    except Exception:
-        pass  # 갱신 실패해도 이번 요청은 새 토큰으로 진행
-
-
-# ── 헤더/버전 ────────────────────────────────────────────────────────────────
-def _detect_codex_version() -> str:
-    def parse(v: str):
-        return tuple(int(p) for p in v.split(".")) if re.fullmatch(r"\d+\.\d+\.\d+", v) else None
-
-    floor = FALLBACK_VERSION
-    try:
-        if VERSION_PATH.exists():
-            data = json.loads(VERSION_PATH.read_text(encoding="utf-8"))
-            v = data.get("latest_version")
-            if isinstance(v, str):
-                pv, pf = parse(v), parse(floor)
-                if pv and pf:
-                    return v if pv >= pf else floor
-                if pv:
-                    return v
-    except Exception:
-        pass
-    return floor
-
-
-def _build_headers(token: str, account_id: Optional[str], version: str) -> dict:
-    sid = str(uuid.uuid4())
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}",
-        "Accept": "text/event-stream",
-        "Connection": "Keep-Alive",
-        "version": version,
-        "session_id": sid,
-        "x-client-request-id": sid,
-        "User-Agent": f"codex_cli_rs/{version} (Windows 11; x64) image-studio",
-        "originator": "codex_cli_rs",
-    }
-    if account_id:
-        headers["chatgpt-account-id"] = account_id
-    return headers
-
-
-# ── 참조 이미지 ───────────────────────────────────────────────────────────────
-def _sniff_mime(data: bytes) -> Optional[str]:
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if data[:2] == b"\xff\xd8":
-        return "image/jpeg"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    return None
-
-
-def _encode_ref(raw: bytes) -> Tuple[str, str]:
-    mime = _sniff_mime(raw) or "image/png"
-    return base64.b64encode(raw).decode("ascii"), mime
 
 
 # ── 페이로드 ──────────────────────────────────────────────────────────────────
@@ -270,51 +142,7 @@ def _build_payload(prompt: str, size: str, output_format: str, model: str,
     }
 
 
-# ── SSE 스트림 파싱 ───────────────────────────────────────────────────────────
-def _loosen_read_timeout(resp: Any, timeout: float) -> None:
-    try:
-        resp.fp.raw._sock.settimeout(timeout)  # type: ignore[attr-defined]
-    except Exception:
-        pass
-
-
-def _stream(headers: dict, body: JsonDict, deadline: float, stall_timeout: float) -> Iterator[JsonDict]:
-    req = urllib.request.Request(
-        CODEX_BACKEND, data=json.dumps(body).encode("utf-8"),
-        headers=headers, method="POST",
-    )
-    initial = max(1.0, min(30.0, deadline - time.monotonic()))
-    resp = urllib.request.urlopen(req, timeout=initial)
-    _loosen_read_timeout(resp, min(stall_timeout, max(1.0, deadline - time.monotonic())))
-    try:
-        data_buf: List[str] = []
-        for raw in resp:
-            if time.monotonic() >= deadline:
-                raise ImageEngineError("스트림이 전체 시간 예산을 초과했습니다.")
-            line = raw.decode("utf-8", errors="ignore").rstrip("\r\n")
-            if line == "":
-                if not data_buf:
-                    continue
-                payload = "\n".join(data_buf)
-                data_buf = []
-                if payload == "[DONE]":
-                    return
-                try:
-                    yield json.loads(payload)
-                except Exception:
-                    pass
-                continue
-            if line.startswith(":") or line.startswith("event:"):
-                continue
-            if line.startswith("data:"):
-                chunk = line[len("data:"):]
-                if chunk.startswith(" "):
-                    chunk = chunk[1:]
-                data_buf.append(chunk)
-    finally:
-        resp.close()
-
-
+# ── 이미지 응답 SSE 파싱 ──────────────────────────────────────────────────────
 def _post_for_image(headers: dict, payload: JsonDict,
                     deadline: float, stall_timeout: float) -> Tuple[bytes, JsonDict]:
     image_b64: Optional[str] = None

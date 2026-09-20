@@ -1,7 +1,8 @@
 # backplate-showcase — 운영 지침
 
 원고 한 장(HTML)을 넣으면 **배경 그림 + 웹 텍스트**로 된 16:9 강의 영상이 나온다.
-개발은 Claude Code, **운영은 이 문서만 보고** Codex CLI로 한다.
+**로그인은 `codex login` 하나다.** 대본·목차·그림 지시문·비전·그림이 전부
+같은 ChatGPT 구독으로 나간다.
 
 ---
 
@@ -23,11 +24,10 @@
 setup.bat            venv 둘 + npm + 폰트 + 음성모델(396MB) + 진단까지 한 번에
 ```
 
-로그인 둘은 **사람마다 따로** 해야 한다. `setup.bat`이 대신 못 한다:
+로그인은 **사람마다 따로** 해야 한다. `setup.bat`이 대신 못 한다:
 
 ```
-claude               한 번 실행해 구독 로그인    (대본·지시문 작성)
-codex login          한 번 실행해 ChatGPT 로그인 (그림 생성)
+codex login          한 번 실행해 ChatGPT 로그인 (대본·지시문·그림 전부)
 ```
 
 막히면 진단을 먼저 본다. **무엇이 없어서 안 되는지 이름으로** 알려 준다:
@@ -39,6 +39,9 @@ codex login          한 번 실행해 ChatGPT 로그인 (그림 생성)
 > **주의:** `codex`의 `auth.json`이 파일로는 멀쩡해도 세션이 죽어 있을 수 있다.
 > 그때 배치가 `token_revoked`로 즉시 전체 중단한다 — **할당량 소진이 아니다.**
 > `codex login`을 다시 하면 된다. 할당량 문제는 `429`나 `insufficient_quota`로 온다.
+>
+> `doctor.py`는 파일만 보지 않고 **실제로 한 콜 찔러 본다.** 그래야 이 구별이 된다.
+> 할당량을 아끼려면 `SHOWCASE_DOCTOR_NO_PING=1`로 끄되, 그러면 세션 생사는 모른다.
 
 ## 2. 실행
 
@@ -65,28 +68,33 @@ run.bat              →  http://localhost:5178
 set PY=.venv-app\Scripts\python
 
 %PY% tools\run_stage.py <pid> s2c-capture        원고 구조 읽기
-%PY% tools\run_stage.py <pid> s2b-outline        구조 설계        ← 돈(Claude)
+%PY% tools\run_stage.py <pid> s2b-outline        구조 설계        ← 할당량
    ■ 사람이 개입: 웹에서 목차 확인 · 제목과 순서 확정
-%PY% tools\run_stage.py <pid> s3a-imgprompt      그림 지시문      ← 돈(Claude)
+%PY% tools\run_stage.py <pid> s3a-imgprompt      그림 지시문      ← 할당량
 %PY% tools\run_stage.py <pid> s3b-images         지시문 JSON 내보내기
-%PY% tools\run_stage.py <pid> s3c-images-run     그림 굽기        ← 돈(구독 할당량)
+%PY% tools\run_stage.py <pid> s3c-images-run     그림 굽기        ← 할당량
    ■ 사람이 개입: 그림 두세 장을 눈으로 본다. 톤이 어긋나면 여기서 멈춘다
-%PY% tools\run_stage.py <pid> s6-script          내레이션 대본    ← 돈(Claude)
+%PY% tools\run_stage.py <pid> s6-script          내레이션 대본    ← 할당량
 %PY% tools\run_stage.py <pid> s10-tts s11-audio  음성 · 자막
 %PY% tools\run_stage.py <pid> s8-assemble        덱 조립
    ■ 사람이 개입: 「라벨 자리」 화면에서 글이 그림을 가리면 끌어서 옮긴다
 %PY% tools\run_stage.py <pid> s12h-hyper         모션 영상 + −16 LUFS
 ```
 
-`--force`를 붙이면 캐시를 무시하고 다시 돌린다. **돈이 드는 단계에는 함부로 붙이지
-않는다.**
+`--force`를 붙이면 캐시를 무시하고 다시 돌린다. **할당량을 쓰는 단계에는 함부로
+붙이지 않는다.**
 
-### 돈이 드는 단계만 따로
+### 할당량을 쓰는 단계만 따로
 
-| 스테이지 | 무엇에 | 대략 |
-|---|---|---|
-| `s2b-outline` · `s6-script` · `s3a-imgprompt` | Claude 구독 | 장당 $1~2 |
-| `s3c-images-run` | ChatGPT 구독 할당량 | 그림 장수만큼 |
+콜당 청구되는 돈은 없다. 쓰는 것은 **ChatGPT 구독 한도** 하나다.
+
+| 스테이지 | 쓰는 것 |
+|---|---|
+| `s2b-outline` · `s6-script` · `s3a-imgprompt` · `s3-caption` · `s13b` · `s13c` | 텍스트·비전 콜 |
+| `s3c-images-run` | 그림 생성 |
+
+텍스트 콜은 **캐시가 곧 이어하기**다 — `--force` 없이 다시 돌리면 있는 것은 건너뛴다.
+429로 중간에 죽어도 그대로 다시 돌리면 남은 것만 간다.
 
 `s3c`는 **이어하기**가 된다. 있는 번호는 건너뛰므로 중간에 끊겨도 남은 것만 굽는다.
 그래서 **두세 장만 먼저 굽고 눈으로 본 뒤** 나머지를 돌리는 것이 정석이다.
@@ -174,8 +182,8 @@ ffmpeg -i out.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=summary -f null
 
 | 증상 | 원인 | 할 일 |
 |---|---|---|
-| 그림이 `token_revoked`로 전부 실패 | Codex 세션 만료 | `codex login` |
-| 그림이 `429` / `insufficient_quota` | 구독 할당량 소진 | 결제일까지 대기 |
+| 텍스트·그림이 `token_revoked`로 전부 실패 | Codex 세션 만료 | `codex login` |
+| `429` / `insufficient_quota` | 구독 할당량 소진 | 결제일까지 대기 |
 | 음성이 안 나온다 | 가중치 없음 | `tools\doctor.py`가 받는 법을 알려 준다 |
 | 라벨이 편집기에 안 보인다 | 10판 원장이다 | `plate_migrate.py` → `s8-assemble --force` |
 | 글자가 두 겹으로 보인다 | 그림이 옛 지시문으로 구워졌다 | `s3a` 부터 다시 — 지시문·그림·덱을 지우고 「이미지 JSON 만들기」 |
