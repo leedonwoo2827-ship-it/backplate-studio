@@ -423,6 +423,19 @@ async def _generate_one(job: BatchJob, item: dict, settings: dict) -> None:
             item["error"] = msg
             if attempt >= job.retries or job.stop_flag:
                 item["status"] = "failed"
+                # ★ 재시도를 다 쓴 429/할당량은 **벽이다.** 로그인 만료와 똑같이
+                #   전체를 세운다. 예전에는 항목 하나만 실패로 적고 다음으로
+                #   넘어갔는데, 벽에 닿은 뒤로는 남은 항목이 **전부** 같은 벽에
+                #   부딪힌다 — 한 장당 45초씩 두 번 자고 실패하므로 270장짜리
+                #   배치에서 100장째에 닿으면 남은 170장이 동시 3으로 85분을
+                #   헛돌고 "실패 170" 만 남는다. 할당량이 바닥났다는 말은 어디에도
+                #   안 나온다. 이어하기가 되므로(있는 번호는 건너뛴다) 다음 창에
+                #   같은 명령을 주면 남은 것만 굽는다.
+                if _is_rate_limited(msg) and not job.stop_flag:
+                    job.stop_flag = True
+                    job.fatal = ("할당량·요청한도에 걸려 전체를 멈췄습니다 "
+                                 "(로그인 문제가 아닙니다). 한도가 풀린 뒤 다시 "
+                                 f"돌리면 남은 것만 굽습니다 — {msg[:160]}")
                 job.persist()
                 return
             item["status"] = "pending"
