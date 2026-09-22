@@ -12,10 +12,9 @@
   `FROM` 인데 소리는 「프롬」이 되어 사람이 눈으로 검수할 수가 없다(2026-08-23 에
   그렇게 만들어 90장에서 화면과 소리가 갈렸다).
 
-★ **표는 voicewright 사전 하나뿐이다** — `voicewright/config/pronunciation_map.yaml`.
-  거기에 이미 쌓아 둔 것이 있고(교육 용어 60여 개), voicewright 의 `/dict` 화면에서
-  편집할 수 있다. 파이썬에 표를 또 두면 두 벌이 되어 언젠가 서로 다르게 읽는다.
-  **새 용어는 그 파일에 한 줄 넣으면 여기까지 따라온다.**
+★ **표는 엔진 사전 하나뿐이다** — `tts/config/pronunciation_map.yaml`(레포 안).
+  합성 브리지가 읽는 파일과 같은 것이라, 덱 화면의 「발음 사전」에서 넣으면 소리까지
+  따라온다. 파이썬에 표를 또 두면 두 벌이 되어 언젠가 서로 다르게 읽는다.
 
 ★ 표에 없는 영문은 **글자 이름으로 읽는다**(`ABC` → 「에이비씨」). 사전에 없는 약자를
   영어 소리로 흘리는 것보다 또박또박 읽어 주는 편이 강의에서 낫다.
@@ -40,16 +39,34 @@ LETTER = {
 }
 
 # `  KEY: VALUE` — 키에 공백이 들어갈 수 있다(`GROUP BY`). 주석·빈 줄은 건너뛴다.
-_LINE = re.compile(r"^\s{1,4}(?!#)([^:#\n]+?)\s*:\s*(.+?)\s*$")
+# ★ 따옴표로 싼 키는 안에 `#`·`:` 이 있어도 키다(`"#edchat": 샵에드챗`). 전에는
+#   `#` 을 무조건 주석으로 봐서 그 줄을 읽지 못했고, 화면에서 「사전 저장」을 하면
+#   읽지 못한 줄이 **조용히 지워졌다**(2026-09-22 실측).
+_LINE = re.compile(r"""^\s{1,4}(?!#)("[^"\n]*"|'[^'\n]*'|[^:#\n]+?)\s*:\s*(.+?)\s*$""")
 _UNQUOTE = re.compile(r'^(["\'])(.*)\1$')
 
 _cache: Dict[str, Tuple[float, Dict[str, str]]] = {}
 
 
+# 엔진이 레포 안에 벤더링돼 있다(`tts/`). 브리지(`scripts/tts_bridge.py`)가 합성
+# 때 읽는 사전이 바로 이 파일이므로 **여기가 첫 후보**다.
+_APP = Path(__file__).resolve().parent.parent
+_VENDORED = _APP / "tts" / "config" / "pronunciation_map.yaml"
+
+
 def dict_path() -> Optional[Path]:
-    """사전 파일 자리. `assets_dir` 의 부모가 voicewright 뿌리다."""
+    """사전 파일 자리.
+
+    ★ **브리지가 읽는 것과 같은 파일**이어야 한다. 전에는 형제 폴더의
+      `voicewright/config/` 만 찾아서, 엔진을 `tts/` 로 옮긴 뒤 화면의 「사전 저장」이
+      「사전 파일을 찾지 못했습니다」로 막혔다(2026-09-22 실측) — 파일은 멀쩡히
+      있었고 보는 자리가 옛것이었다(`tools/wire_tts.py` 머리말과 같은 사고).
+      아래 옛 후보들은 밖에 clone 해 쓰던 시절의 호환용이다.
+    """
     from core import config
 
+    if _VENDORED.is_file():
+        return _VENDORED
     tts = config.load().get("tts") or {}
     for base in (tts.get("assets_dir"), tts.get("voicewright_dir")):
         if not base:
@@ -92,6 +109,9 @@ def rules() -> Dict[str, str]:
         if not m:
             continue
         k, v = m.group(1).strip(), m.group(2).strip()
+        mk = _UNQUOTE.match(k)
+        if mk:
+            k = mk.group(2)
         mq = _UNQUOTE.match(v)
         if mq:
             v = mq.group(2)

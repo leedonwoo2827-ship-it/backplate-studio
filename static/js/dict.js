@@ -1,14 +1,16 @@
 /* 발음 사전 — 영문을 한국어 소리로 읽는 표를 **여기서 쌓는다.**
  *
- * 왜 화면이 필요한가. 사전은 파일 하나(`voicewright/config/pronunciation_map.yaml`)
+ * 왜 화면이 필요한가. 사전은 파일 하나(`tts/config/pronunciation_map.yaml`)
  * 인데, 채울 것이 무엇인지는 **덱을 봐야** 안다. SQL 과목에서 `DECODE` 가
  * 「디이씨오디이」로 나온 것이 그 예다 — 사전에 없으니 글자 이름으로 읽은 것이고,
  * 파일만 열어 놓고는 무엇이 빠졌는지 알 길이 없다.
  *
- * 그래서 이 화면은 두 칸이다.
+ * 화면은 한 칸이다 — 맨 위 「영문 | 읽는 소리 | 넣기」, 그 아래 찾기와 사전 목록.
  *
- *   왼쪽  아직 없는 말   이 덱에 나오는데 사전에 없는 영문. 많이 나온 순.
- *   오른쪽 사전          이미 들어 있는 것. 고치고 지운다.
+ * ★ 전에는 왼쪽에 「아직 없는 말」(덱에 나오는데 사전에 없는 영문, 빈도순)을
+ *   같이 냈다. 발음 검수를 장별로 듣고 고치는 흐름이 되면서 그 표는 보지 않게
+ *   됐고, 화면만 둘로 갈라 넣을 자리를 찾게 했다 — 걷어냈다(2026-09-22).
+ *   서버의 `missing` 은 그대로 온다(다른 데서 쓸 수 있다). 여기서 안 볼 뿐이다.
  *
  * ★ **바닥 화면이다**(패널이 아니다). 입력칸이 있는 화면은 Esc·스크림으로 닫히면
  *   안 된다 — 타이핑하던 것이 날아간다(`shell.js` 의 두 층 법칙).
@@ -38,7 +40,6 @@ export const meta = {
 
 /* 화면이 들고 있는 표. 저장할 때 통째로 넘긴다. */
 let RULES = {};
-let MISSING = [];
 
 export async function mount(root) {
   root.innerHTML = "";
@@ -90,17 +91,13 @@ async function fill(host, pid, withHeaderPath) {
     return;
   }
   RULES = data.rules || {};
-  MISSING = data.missing || [];
 
   if (withHeaderPath) {
     const p = document.getElementById("dictPath");
     if (p) p.textContent = `${data.count}개 · ${data.path}`;
   }
 
-  const cols = el("div", "dictcols");
-  cols.appendChild(missingCol());
-  cols.appendChild(rulesCol());
-  host.appendChild(cols);
+  host.appendChild(rulesCol());
 
   if (!withHeaderPath) {
     /* 인라인에는 저장 버튼이 안 딸려 온다(전용 화면은 제목 줄에 있다) */
@@ -114,46 +111,7 @@ async function fill(host, pid, withHeaderPath) {
   }
 }
 
-/* ── 왼쪽: 아직 사전에 없는 말 ──────────────────────────────────────────── */
-function missingCol() {
-  const box = el("section", "dictcol");
-  box.appendChild(el("h3", null, "아직 없는 말"));
-  box.appendChild(el("p", "muted",
-    MISSING.length
-      ? "이 덱에 나오는데 사전에 없는 영문입니다. 많이 나온 순서입니다."
-      : "이 덱에서 빠진 영문이 없습니다."));
-
-  if (!MISSING.length) return box;
-
-  /* ★ 제안값을 미리 채워 둔다 — 지금 그렇게 읽히고 있는 소리다. 맞으면 그대로
-     두고 아니면 고친다. 빈칸을 주면 매번 처음부터 타이핑해야 한다. */
-  const list = el("div", "dictlist");
-  for (const m of MISSING) {
-    const row = el("div", "dictrow");
-    const k = el("span", "dk");
-    k.textContent = m.word;
-    const n = el("span", "dn");
-    n.textContent = m.n + "회";
-    const v = el("input", "di");
-    v.type = "text";
-    v.value = m.guess || "";
-    v.placeholder = "읽는 소리";
-    v.spellcheck = false;
-    v.oninput = () => { RULES[m.word] = v.value.trim(); };
-    RULES[m.word] = v.value.trim();          // 제안값도 저장 대상이다
-    const rm = el("button", "dx");
-    rm.type = "button";
-    rm.textContent = "×";
-    rm.title = "이 말은 사전에 넣지 않습니다";
-    rm.onclick = () => { delete RULES[m.word]; row.remove(); };
-    row.append(k, n, v, rm);
-    list.appendChild(row);
-  }
-  box.appendChild(list);
-  return box;
-}
-
-/* ── 오른쪽: 이미 들어 있는 사전 ────────────────────────────────────────── */
+/* ── 사전 — 넣기 줄, 찾기, 목록 ──────────────────────────────────────── */
 function rulesCol() {
   const box = el("section", "dictcol");
   box.appendChild(el("h3", null, "사전"));
@@ -170,7 +128,6 @@ function rulesCol() {
   const draw = (q) => {
     list.innerHTML = "";
     const keys = Object.keys(RULES)
-      .filter((k) => !MISSING.some((m) => m.word === k))
       .filter((k) => !q || k.toLowerCase().includes(q) || (RULES[k] || "").includes(q))
       .sort();
     for (const k of keys) list.appendChild(ruleRow(k, list));
@@ -178,11 +135,19 @@ function rulesCol() {
   };
   find.oninput = () => draw(find.value.trim().toLowerCase());
   draw("");
+  redrawRules = () => draw(find.value.trim().toLowerCase());
 
-  /* 새 줄 — 덱에 없는 말도 미리 넣어 둘 수 있어야 한다.
-     ★ **목록 위에 둔다**(2026-09-06). 사전이 길어질수록 아래에
-       두면 넣을 때마다 끝까지 내려야 한다 — 넣는 일은 목록을 다 본 뒤에 하는
-       일이 아니라 아무 때나 하는 일이다. */
+  /* 새 줄 — **제목 바로 아래, 찾기·목록보다 먼저.** 사전이 길어질수록 아래에
+     두면 넣을 때마다 끝까지 내려야 한다(2026-09-06). */
+  box.insertBefore(addRow(), find);
+  return box;
+}
+
+/* 목록을 다시 그리는 손잡이 — 넣기 줄이 부른다 */
+let redrawRules = () => {};
+
+/* 「영문 | 읽는 소리 | 넣기」 한 줄 */
+function addRow() {
   const add = el("div", "dictadd");
   const nk = el("input", "di");
   nk.type = "text";
@@ -195,17 +160,19 @@ function rulesCol() {
   const ab = el("button", "btn sm");
   ab.type = "button";
   ab.append(icon("plus", 12), el("span", null, "넣기"));
-  ab.onclick = () => {
+  const go = () => {
     const k = nk.value.trim(), v = nv.value.trim();
     if (!k || !v) { toast("영문과 소리를 둘 다 적어 주세요"); return; }
     RULES[k] = v;
     nk.value = nv.value = "";
-    draw(find.value.trim().toLowerCase());
+    redrawRules();
+    nk.focus();
     toast(`${k} → ${v} — «사전 저장» 을 눌러야 파일에 들어갑니다`);
   };
+  ab.onclick = go;
+  nv.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } };
   add.append(nk, nv, ab);
-  box.insertBefore(add, find);      // 제목 바로 아래 — 찾기·목록보다 먼저
-  return box;
+  return add;
 }
 
 function ruleRow(k, list) {
