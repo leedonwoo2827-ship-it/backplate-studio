@@ -20,8 +20,12 @@ SME 가 훑으며 **발음이 이상한 곳**과 **글귀가 틀린 곳**을 잡
 """
 from __future__ import annotations
 
+import base64
 import re
+import subprocess
+import tempfile
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any, Callable, Dict
 
 from core import honorific
@@ -95,6 +99,21 @@ body{margin:0;font-family:"Pretendard","Malgun Gothic",sans-serif;
    2쪽에 캡션과 대사를 몰아 둔다. */
 .caps{margin-bottom:3mm}
 .sheet.pic .slide{flex:1 1 auto}
+
+/* ★ **표지 한 장이 맨 앞이다 — 양면 상철 제본 때문이다.** 표지가 없으면
+   1쪽(앞면)이 그림, 2쪽(뒷면)이 대사라 종이를 넘겨야 둘을 잇는다. 표지를
+   한 장 끼우면 그림이 2쪽(표지 뒷면), 대사가 3쪽(다음 장 앞면)이 되어
+   위로 넘겼을 때 **한 씬이 펼친 면에 같이** 온다(2026-09-22 요청). */
+.sheet.cover{display:flex;min-height:191mm;justify-content:center;align-items:center;text-align:center;
+  border-top:6pt solid #1F4E79}
+.sheet.cover .cv-k{font-size:9pt;color:#9a958a;letter-spacing:.3em;margin-bottom:6mm}
+.sheet.cover .cv-t{font-size:26pt;font-weight:800;color:#1F4E79;
+  letter-spacing:-.03em;margin:0 0 5mm;word-break:keep-all;line-height:1.25}
+.sheet.cover .cv-s{font-size:10pt;color:#5a6472;margin:0 0 14mm}
+.sheet.cover .cv-l{display:inline-block;text-align:left;font-size:9pt;
+  color:#6b7280;line-height:2.2}
+.sheet.cover .cv-l b{color:#1F4E79;display:inline-block;width:18mm}
+.sheet.cover .cv-h{font-size:7.6pt;color:#a8a296;margin-top:12mm}
 
 .slide{position:relative;width:100%;aspect-ratio:16/9;background:#F6F1E8;
   container-type:size;border:.5pt solid #d9d3c8;overflow:hidden}
@@ -180,7 +199,7 @@ tr{break-inside:avoid;page-break-inside:avoid}
 /* ── A4 **밑에** 붙는 자리 — 화면에서만 쓴다 ───────────────────────────
    SME 에게 보내는 PDF 는 **고치기 전**이라 메모가 비어 있다. 인쇄에 빈 칸을
    끼우면 장마다 종이가 한 장씩 늘 뿐이다. */
-@media print{.below,.bar{display:none}}
+@media print{.below{display:none}}
 .below{width:277mm;margin:0 auto 10mm;background:#fff;border-radius:2mm;
   box-shadow:0 1px 10px rgba(0,0,0,.10);padding:5mm 8mm 6mm}
 .bh{display:flex;align-items:center;gap:8px;font-size:8.6pt;color:#6b7280;
@@ -209,6 +228,11 @@ tr{break-inside:avoid;page-break-inside:avoid}
 .bar .dl,.bar .ld{background:#3a4150}
 .bar .pos{font-variant-numeric:tabular-nums;color:#9aa0aa;min-width:46px;
   text-align:center}
+/* ★ **`.bar` 뒤에 둔다.** 위 `.bar{display:flex}` 보다 앞에 두면 같은 우선순위라
+   뒤의 flex 가 이겨 인쇄 맨 끝에 「메모 0 · 0/0」 한 쪽이 더 찍힌다
+   (2026-09-22 실측 — 66쪽). 그러면 상철 펼침면이 표지부터 어긋나진 않지만
+   종이 한 장이 헛돈다. */
+@media print{.bar{display:none}}
 """
 
 JS = """
@@ -302,8 +326,26 @@ JS = """
     + "<button type=button class=nv data-d=1>▶</button>"
     + "<button type=button class=ld>검수내역 불러오기</button>"
     + "<button type=button class=dl>HTML 내려받기</button>"
+    + (document.body.dataset.pdf
+       ? "<button type=button class=pdf>PDF 내려받기</button>" : "")
     + "<button type=button class=sv>검수내역 저장</button>";
   document.body.appendChild(bar);
+  /* PDF — 서버가 헤드리스 크롬으로 찍는다(`tools/review_pdf.mjs`). 브라우저의
+     「인쇄 → PDF 저장」과 같은 결과지만 여백·용지·배경색을 사람이 안 맞춰도 된다.
+     그림은 HTML 내려받기와 같은 640px 흑백이다. 내려받은 HTML 사본에는
+     `.bar` 가 없으므로 이 단추도 따라가지 않는다. */
+  var pdfBtn = bar.querySelector(".pdf");
+  if (pdfBtn) pdfBtn.onclick = function () {
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = "PDF 찍는 중…";
+    var a = document.createElement("a");
+    a.href = document.body.dataset.pdf;
+    a.download = "";
+    a.click();
+    setTimeout(function () {
+      pdfBtn.disabled = false; pdfBtn.textContent = "PDF 내려받기";
+    }, 20000);
+  };
   bar.querySelectorAll(".nv").forEach(function (x) {
     x.onclick = function () { go(cur + Number(x.dataset.d)); };
   });
@@ -448,9 +490,52 @@ JS = """
 """
 
 
+# ── 파일로 떨굴 때 ──────────────────────────────────────────────────────
+#   `tools/dump_review.py`(장마다 HTML/PDF)와 서버 `/review/{pid}/pdf` 가 같이
+#   쓴다. 둘이 갈라지면 한쪽만 75MB 로 돌아간다(2026-09-22 실측).
+SMALL_W = 640      # 그림 가로 픽셀 — 검수는 라벨 자리를 가늠하는 일이라 화질이 필요 없다
+SMALL_Q = 8        # ffmpeg -q:v (낮을수록 좋음)
+SMALL_GRAY = True  # 흑백 — 컬러 대비 3분의 1
+PDF_SCRIPT = Path(__file__).resolve().parent.parent / "tools" / "review_pdf.mjs"
+
+
+def small_img(src: Path) -> str:
+    """PNG → 640px 흑백 JPEG → data URI. ffmpeg 로 한다(.venv-app 에 PIL 이 없다).
+    실측: 원본 2.3MB → 25KB. 32씬 한 장이 75MB → 1.3MB."""
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+        out = Path(f.name)
+    try:
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(src), "-vf",
+             f"scale={SMALL_W}:-1" + (",format=gray" if SMALL_GRAY else ""),
+             "-q:v", str(SMALL_Q), str(out), "-y"],
+            check=True, capture_output=True)
+        return "data:image/jpeg;base64," + base64.b64encode(out.read_bytes()).decode("ascii")
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def to_pdf(html: str, out: Path, timeout: int = 180) -> Path:
+    """검수지 HTML → PDF. 헤드리스 크롬이 `@page`(A4 가로)를 그대로 따른다.
+    ★ HTML 을 파일로 두고 `file://` 로 연다 — 그림이 data URI 라 서버가 없어도 된다."""
+    with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w",
+                                     encoding="utf-8") as f:
+        f.write(html)
+        src = Path(f.name)
+    try:
+        r = subprocess.run(["node", str(PDF_SCRIPT), str(src), str(out)],
+                           capture_output=True, text=True, timeout=timeout,
+                           cwd=str(PDF_SCRIPT.parent.parent))
+        if r.returncode != 0:
+            raise RuntimeError(f"PDF 실패: {(r.stderr or r.stdout).strip()[-600:]}")
+        return out
+    finally:
+        src.unlink(missing_ok=True)
+
+
 def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
           audio_url: Callable[[int], str], only: int | None = None,
-          pics: bool = True) -> str:
+          pics: bool = True, pdf_url: str = "") -> str:
     """덱 → 검수지 HTML. 그림·소리 주소는 부르는 쪽이 준다(서버/파일 둘 다).
 
     ★ `pics=False` 면 **그림 쪽을 통째로 뺀다.** 검수는 라벨 글귀와 발음을
@@ -466,6 +551,18 @@ def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
         slides = [s for s in slides if int(s.get("no") or 0) == only]
 
     P = []
+    # ★ 표지 — 제목만. 한 씬만 볼 때(`only`)나 그림 없는 판(`pics=False`, 씬이
+    #   한 장뿐이라 펼침이 없다)에는 안 끼운다. 이유는 CSS `.sheet.cover` 머리말.
+    if pics and only is None:
+        P.append(f'''<section class="sheet cover">
+  <div class="cv-k">검수지</div>
+  <h1 class="cv-t">{esc(book)}</h1>
+  <p class="cv-s">씬 {total}개 · 씬마다 두 쪽 — 왼쪽 그림, 오른쪽 캡션과 대사</p>
+  <div class="cv-l"><div><b>검수</b> ______________________</div>
+    <div><b>날짜</b> ______________________</div></div>
+  <div class="cv-h">양면 · 위로 넘기는 제본(상철)으로 인쇄하면 한 씬이 펼친 면에 같이 옵니다.
+    고칠 것은 각 쪽의 메모 칸에만 적어 주세요.</div>
+</section>''')
     for i, s in enumerate(slides, 1):
         no = int(s.get("no") or 0)
         cl = cues.get(str(no)) or []
@@ -566,6 +663,9 @@ def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
   <div class="diffs" data-s="{no}"></div>
 </div>""")
 
+    # ★ `pdf_url` 이 있으면 화면에 「PDF 내려받기」가 뜬다(서버에서 열 때만).
+    #   파일로 떨군 사본은 서버가 없으니 안 준다.
+    body = f'<body data-pdf="{esc(pdf_url)}">' if pdf_url else "<body>"
     return (f'<!doctype html><html lang="ko"><head><meta charset="UTF-8">'
             f'<title>{esc(book)} — 검수지</title><style>{CSS}</style></head>'
-            f'<body>{"".join(P)}<script>{JS}</script></body></html>')
+            f'{body}{"".join(P)}<script>{JS}</script></body></html>')

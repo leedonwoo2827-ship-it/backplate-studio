@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -24,6 +26,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -1378,8 +1381,47 @@ def review_sheet(pid: int, n: int | None = None):
         img_url=lambda rel: f"/api/projects/{pid}/file/{quote(rel)}",
         audio_url=lambda no: f"/api/projects/{pid}/audio/{no}",
         only=n,
+        pdf_url=f"/review/{pid}/pdf" if n is None else "",
     )
     return HTMLResponse(html)
+
+
+@app.get("/review/{pid}/pdf")
+def review_pdf(pid: int):
+    """검수지 PDF — 화면의 「PDF 내려받기」.
+
+    ★ 그림은 **640px 흑백**(`render.review.small_img`)으로 줄여 넣는다.
+      원본 PNG 를 실으면 한 장이 75MB 였다(2026-09-22). 소리는 안 싣는다.
+    ★ 파일로 두지 않는다 — `/review/{pid}` 처럼 그때의 덱을 그 자리에서 찍는다.
+      `tools/dump_review.py --pdf` 가 같은 함수로 전 장을 한 폴더에 떨군다.
+    """
+    from render.review import build, small_img, to_pdf
+
+    doc = _find(pid)
+    deck = get_deck(pid)
+    if not deck.get("ready"):
+        raise HTTPException(status_code=409, detail="아직 덱 구조가 없습니다")
+    root = ws.project_dir(pid, doc["slug"], create=False)
+    cache: Dict[str, str] = {}
+
+    def img(rel: str) -> str:
+        if rel not in cache:
+            p = root / rel
+            cache[rel] = small_img(p) if p.is_file() else ""
+        return cache[rel]
+
+    for sl in deck.get("slides") or []:
+        sl["audio"] = {}                       # 소리 없음 — 태그도 안 남긴다
+    html = build(deck, img_url=img, audio_url=lambda no: "")
+    out = Path(tempfile.mkdtemp(prefix="review-")) / f"{root.name}-검수지.pdf"
+    try:
+        to_pdf(html, out)
+    except Exception as e:                     # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    return FileResponse(str(out), media_type="application/pdf",
+                        filename=out.name,
+                        background=BackgroundTask(shutil.rmtree, out.parent,
+                                                  ignore_errors=True))
 
 
 @app.get("/preview/{pid}")
