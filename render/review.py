@@ -364,7 +364,23 @@ JS = """
   };
 
   /* HTML 내려받기 — 그림을 글자로 바꿔 넣어(data URI) 서버 없이도 열린다.
-     ★ **소리는 안 넣는다.** 씬마다 5MB 가 넘어 한 파일이 100MB 를 넘긴다. */
+     ★ **소리는 안 넣는다.** 씬마다 5MB 가 넘어 한 파일이 100MB 를 넘긴다.
+     ★ **그림은 640px 흑백 JPEG 로 줄여 넣는다.** 원본 PNG 를 그대로 실으면
+       한 장이 75MB 였다(2026-09-22 실측, 32씬). 검수는 라벨 자리를 가늠하는
+       일이라 화질이 필요 없다 — `tools/dump_review.py` 와 같은 규격이고,
+       그쪽 실측으로 장당 1.3MB 다. */
+  var SMALL_W = 640, SMALL_Q = 0.6;
+  function shrink(img) {
+    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    if (!w || !h) return null;
+    var cv = document.createElement("canvas");
+    cv.width = SMALL_W;
+    cv.height = Math.round(h * SMALL_W / w);
+    var cx = cv.getContext("2d");
+    cx.filter = "grayscale(1)";
+    cx.drawImage(img, 0, 0, cv.width, cv.height);
+    try { return cv.toDataURL("image/jpeg", SMALL_Q); } catch (e) { return null; }
+  }
   bar.querySelector(".dl").onclick = async function () {
     var btn = this, was = btn.textContent;
     btn.disabled = true;
@@ -379,6 +395,11 @@ JS = """
       var u = imgs[i].src;
       if (u.indexOf("data:") === 0) { srcs.push(u); continue; }
       try {
+        if (!imgs[i].complete) {
+          await new Promise(function (ok) { imgs[i].onload = imgs[i].onerror = ok; });
+        }
+        var small = shrink(imgs[i]);
+        if (small) { srcs.push(small); continue; }
         var r = await fetch(u);
         var bl = await r.blob();
         srcs.push(await new Promise(function (ok) {
