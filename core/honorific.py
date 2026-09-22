@@ -213,8 +213,9 @@ def for_speech(text: str) -> str:
 
         1. 괄호와 그 안을 걷는다      소리에는 군더더기다
         2. 문장 끝을 하십시오체로     이미 높임이면 안 건드린다
-        3. 숫자·기호를 소리대로       1929년 → 천구백이십구 년 · % → 퍼센트
-        4. 영문을 한국어 소리로       FROM → 프롬 · GROUP BY → 그룹 바이
+        3. 사전에 있는 영문만 먼저    MP3 → 엠피쓰리 · H.264 → 에이치 이륙사
+        4. 숫자·기호를 소리대로       1929년 → 천구백이십구 년 · % → 퍼센트
+        5. 남은 영문을 소리로         약어는 글자 이름(SQL → 에스큐엘)
 
     ★ 순서가 있다. 괄호를 먼저 걷어야 `…이다(주석).` 의 문장 끝이 제대로 보이고,
       어미를 먼저 바꿔야 숫자 뒤 단위가 어긋나지 않는다.
@@ -224,16 +225,21 @@ def for_speech(text: str) -> str:
 
     ★ 몇 번을 돌려도 같은 글이다.
 
-    ★ 영문은 **맨 마지막**이다. 먼저 바꾸면 `2.0` 의 숫자 변환이 이미 한글이 된
-      자리를 다시 훑게 되고, 어미 바꾸기가 `SELECT 한다` 같은 꼴을 놓친다.
-      표는 `core/roman.py` 가 voicewright 사전에서 읽어 온다 — 표를 두 벌 두지 않는다.
+    ★ **사전은 숫자보다 먼저, 글자 이름 읽기는 맨 마지막이다.** 전에는 영문을
+      통째로 맨 뒤에 뒀는데, 그러면 `MP3`·`H.264`·`CCK08` 처럼 **숫자가 든 키**가
+      숫자 변환에 먼저 잡아먹혀(`MP삼`·`H.이백육십사`) 사전에 넣어도 영영 안
+      맞았다(2026-09-22 실측 — 13장). 사전 값은 한글이라 숫자 변환이 다시 훑을
+      것이 없고, 어미 바꾸기는 그보다 먼저 끝나 있다. 남은 영문의 글자 이름
+      읽기(`spell_rest`)만 뒤에 둔다 — 표는 `core/roman.py` 가 엔진 사전에서
+      읽어 온다. 두 벌 두지 않는다.
     """
     if not text:
         return text
     t = _PAREN.sub("", text)
     t = re.sub(r"[ \t]{2,}", " ", t)
     from core.roman import speak_roman
-    return speak_roman(speak_numbers(to_polite(t))).strip()
+    t = speak_roman(to_polite(t), spell_rest=False)     # 사전만 — 숫자보다 먼저
+    return speak_roman(speak_numbers(t)).strip()
 
 
 def josa(word: str, with_jong: str, without_jong: str) -> str:
