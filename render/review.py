@@ -109,7 +109,14 @@ body{margin:0;font-family:"Pretendard","Malgun Gothic",sans-serif;
 .sheet.cover .cv-k{font-size:9pt;color:#9a958a;letter-spacing:.3em;margin-bottom:6mm}
 .sheet.cover .cv-t{font-size:26pt;font-weight:800;color:#1F4E79;
   letter-spacing:-.03em;margin:0 0 5mm;word-break:keep-all;line-height:1.25}
-.sheet.cover .cv-s{font-size:10pt;color:#5a6472;margin:0 0 14mm}
+.sheet.cover .cv-s{font-size:10pt;color:#5a6472;margin:0 0 8mm}
+/* 씬 번호 칸 — 한 줄에 열 개. 본 씬에 표시하는 체크판이다(2026-09-22 요청).
+   칸은 사람이 연필로 표시할 크기(8.6mm)여야 한다. */
+.sheet.cover .cv-grid{display:grid;grid-template-columns:repeat(10,8.6mm);
+  margin:0 auto 10mm;border-left:.6pt solid #1f2430;border-top:.6pt solid #1f2430}
+.sheet.cover .cv-grid i{display:block;height:8.6mm;line-height:8.6mm;font-style:normal;
+  font-size:8.4pt;color:#1f2430;font-variant-numeric:tabular-nums;
+  border-right:.6pt solid #1f2430;border-bottom:.6pt solid #1f2430}
 .sheet.cover .cv-l{display:inline-block;text-align:left;font-size:9pt;
   color:#6b7280;line-height:2.2}
 .sheet.cover .cv-l b{color:#1F4E79;display:inline-block;width:18mm}
@@ -558,10 +565,11 @@ def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
   <div class="cv-k">검수지</div>
   <h1 class="cv-t">{esc(book)}</h1>
   <p class="cv-s">씬 {total}개 · 씬마다 두 쪽 — 왼쪽 그림, 오른쪽 캡션과 대사</p>
+  <div class="cv-grid">{"".join(f'<i>{k}</i>' for k in range(1, total + 1))}</div>
   <div class="cv-l"><div><b>검수</b> ______________________</div>
     <div><b>날짜</b> ______________________</div></div>
   <div class="cv-h">양면 · 위로 넘기는 제본(상철)으로 인쇄하면 한 씬이 펼친 면에 같이 옵니다.
-    고칠 것은 각 쪽의 메모 칸에만 적어 주세요.</div>
+    본 씬은 위 칸에 표시하고, 고칠 것은 각 쪽의 메모 칸에만 적어 주세요.</div>
 </section>''')
     for i, s in enumerate(slides, 1):
         no = int(s.get("no") or 0)
