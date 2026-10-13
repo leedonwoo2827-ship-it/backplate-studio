@@ -65,3 +65,6 @@ node_modules/
 .venv/
 .venv-app/
 static/fonts/
+
+# 사전 저장 때마다 서버가 남기는 백업 — 쓰고 버리는 것이라 올리지 않는다
+tts/config/*.yaml.bak

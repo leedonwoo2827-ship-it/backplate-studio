@@ -16,8 +16,9 @@ rules:
   11세기: 십일 세기
   12세기: 십이 세기
   17세기: 십칠 세기
-  1EdTech: 원에드테크
+  1EdTech: 원에듀테크
   7세기: 칠 세기
+  ADDIE: 애디
   ADSL: 에이디에스엘
   AI: 에이아이
   ALEKS: 알렉스
@@ -35,22 +36,26 @@ rules:
   DIKSHA: 딕샤
   EBS: 이비에스
   EBSi: 이비에스아이
+  FERPA: 퍼파
   GPA: 지피에이
   GPS: 지피에스
   GPU: 지피유
   H.264: 에이치 이륙사
   H5P: 에이치 파이브 피
+  HOPE: 호프
   HTML5: 에이치티엠엘-파이브
   HTTP: 에이치티티피
   HTTPS: 에이치티티피에스
   IBM: 아이비엠
   ICS: 아이씨에스
   IDE: 아이디이
+  IEEE: 아이 트리플 이
   IELTS: 아이엘츠
   JSON: 제이슨
   KBS: 케이비에스
   KERIS: 케리스
   Khanmigo: 칸미고
+  LINK: 링크
   LMS: 엘엠에스
   MBC: 엠비씨
   MC: 엠씨
@@ -66,10 +71,12 @@ rules:
   OpenAI: 오픈에이아이
   PDF: 피디에프
   PLATO: 플레이토
+  PhET: 피에이치이티
   RSS: 알에스에스
   SBS: 에스비에스
   SCORM: 스콤
   SDK: 에스디케이
+  SoLAR: 솔라
   TED: 테드
   TOEFL: 토플
   TOEIC: 토익
@@ -87,3 +94,4 @@ rules:
   cMOOC: 씨무크
   xAPI: 엑스에이피아이
   xMOOC: 엑스무크
+  배지: 뱃지
