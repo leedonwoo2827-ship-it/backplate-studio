@@ -430,7 +430,12 @@ def compose(*, background: str, layout: str, tone: str, title: str,
             if not head:
                 continue
             lines.append(f'라벨 {i + 1} ({spots[i]}): 굵게 "{head}" / 그 아래 작게 "{body}"')
-    if arrange in _FLOW and len(labels) > 1:
+    # ★ **배경판(plate)에는 화살표를 시키지 않는다**(2026-10-15). 라벨이 그림에 없으니
+    #   「라벨 사이 화살표」는 **빈자리 사이에 떠 있는 화살표**가 된다 — 2과목 10.4장
+    #   아래 띠에 의미 없는 → 가 늘어섰고, 라벨 자리를 잡을 때마다 그것을 피해야 했다.
+    #   흐름은 컨베이어·번호표 같은 장면 속 사물이 보여 준다. 금지 문장은 쓰지 않고
+    #   negative(`image.negative`)에 둔다 — 「그리지 마라」를 말하면 오히려 그린다.
+    if arrange in _FLOW and len(labels) > 1 and not plate:
         lines.append("라벨 사이에 진행 방향을 가리키는 화살표를 하나씩 넣어라 "
                      "— 왼쪽에서 오른쪽으로 이어지는 순서다")
     # ★ **잇는 선을 넣지 않는다**(2026-08-16). 라벨과 그림을 가는 선으로

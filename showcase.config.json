@@ -55,7 +55,7 @@
     "aspect": "landscape",
     "accent_a": "#1F4E79",
     "accent_b": "#9DC3E6",
-    "negative": "dark background, black background, night scene, dark panel, vignette, dark vignette, darkened edges, dark corners, dark gradient, glow, bloom, neon glow, backlit, spotlight on dark, inverted color scheme, light text on dark background, low contrast text, watermark, logo, low quality, distorted, extra limbs",
+    "negative": "dark background, black background, night scene, dark panel, vignette, dark vignette, darkened edges, dark corners, dark gradient, glow, bloom, neon glow, backlit, spotlight on dark, inverted color scheme, light text on dark background, low contrast text, watermark, logo, low quality, distorted, extra limbs, floating arrow symbols, standalone arrows",
     "swap": false,
     "bg": "#F6F1E8"
   },

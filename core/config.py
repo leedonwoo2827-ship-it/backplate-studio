@@ -30,11 +30,13 @@ DEFAULTS: Dict[str, Any] = {
         "script": "claude-opus-5",
         "theme": "claude-opus-5",
         "imgprompt": "claude-opus-5",
+        "labelfit": "claude-opus-5",
     },
     "effort": {
         "caption": "medium", "link": "medium",
         "decisions": "high", "script": "high", "theme": "medium",
         "imgprompt": "medium",
+        "labelfit": "medium",
     },
     "budget_usd": {"per_stage": 1.5, "warn_total": 5.0},
     "frames": {
@@ -92,7 +94,9 @@ DEFAULTS: Dict[str, Any] = {
         #   본문은 길어서 뒤로 밀리지만 negative 는 짧아 잘 듣는다.
         "negative": ("dark background, black background, night scene, "
                      "dark panel, low contrast text, "
-                     "watermark, logo, low quality, distorted, extra limbs"),
+                     "watermark, logo, low quality, distorted, extra limbs, "
+                     # 배경판에서 빈자리 사이에 떠 있던 → (2026-10-15)
+                     "floating arrow symbols, standalone arrows"),
         # 그림을 몸통 대신 깔까. 기본은 **꺼짐** — 켜기 전까지 지금과 똑같이 돈다.
         "swap": False,
     },
