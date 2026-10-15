@@ -114,8 +114,8 @@ h2{position:absolute;left:3.2%%;top:2.1%%;font-size:58px;font-weight:800;
 .lbl.cell-box{box-sizing:content-box;padding:13px 17px;margin:-13px -17px;
   background:#F6F1E8;border-radius:10px}
 /* 굵기는 글자의 14%% — 소제목 43px→6px, 설명 28px→4px. 보이는 것은 그 절반. */
-.lbl.cell-line>b{-webkit-text-stroke:6px #F6F1E8;paint-order:stroke fill}
-.lbl.cell-line>span{-webkit-text-stroke:4px #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line>b{-webkit-text-stroke:15px #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line>span{-webkit-text-stroke:11px #F6F1E8;paint-order:stroke fill}
 .lbl.cell-box>b,.lbl.cell-box>span,
 .lbl.cell-line>b,.lbl.cell-line>span{text-shadow:none}
 /* 빛 — **말하고 있는 라벨의 글자 위로만** 한 줄기가 천천히 오간다.

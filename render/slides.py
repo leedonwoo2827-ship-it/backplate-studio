@@ -388,7 +388,8 @@ p{margin:0 0 11px;font-size:clamp(14px,1.15vw,17px);color:#4a453f;max-width:62ch
    ★ **판을 안 버린다.** 청사진·도면처럼 바탕이 아주 복잡한 자리는 윤곽으로
      부족하다(실측 4장: 「목적」·「두 번째 축」이 도면 선과 섞였다). 그 자리만
      사람이 «셀색» 을 눌러 판으로 올린다.
-   ★ 굵기는 글자 크기의 **14%** — 보이는 것은 그 절반인 7% 다. 세 곳이 같은
+   ★ 굵기는 글자 크기의 **35~38%**(2026-10-13: 안쪽 틈까지 베이지로 메우고
+     바깥 윤곽을 두껍게). 보이는 것은 그 절반이다. 세 곳이 같은
      비율이어야 편집 화면이 거짓말을 안 한다.
 
    (아래는 판 갈래의 유래다.) 글자 뒤에 바탕과 **같은 아이보리** 판을 깐다.
@@ -410,8 +411,8 @@ p{margin:0 0 11px;font-size:clamp(14px,1.15vw,17px);color:#4a453f;max-width:62ch
      지시문이 만든 라벨에는 이 칸이 아예 없다(`labels_of`). */
 .lbl.cell-box{box-sizing:content-box;padding:1.2cqh 1.6cqh;margin:-1.2cqh -1.6cqh;
               background:#F6F1E8;border-radius:.9cqh}
-.lbl.cell-line b{-webkit-text-stroke:.56cqh #F6F1E8;paint-order:stroke fill}
-.lbl.cell-line span{-webkit-text-stroke:.36cqh #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line b{-webkit-text-stroke:1.4cqh #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line span{-webkit-text-stroke:1cqh #F6F1E8;paint-order:stroke fill}
 .lbl.cell-box b,.lbl.cell-box span,
 .lbl.cell-line b,.lbl.cell-line span{text-shadow:none}
 @container (max-width:900px){

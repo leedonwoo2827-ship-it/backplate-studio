@@ -109,8 +109,8 @@ body{margin:0;font-family:"Pretendard","Malgun Gothic",sans-serif;
   letter-spacing:-.02em;color:#1F4E79;white-space:pre-wrap}
 .lbl>span{display:block;margin-top:.35em;font-weight:500;font-size:2.6cqh;
   line-height:1.42;color:#334155;white-space:pre-wrap}
-.lbl.cell-line>b{-webkit-text-stroke:.56cqh #F6F1E8;paint-order:stroke fill}
-.lbl.cell-line>span{-webkit-text-stroke:.36cqh #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line>b{-webkit-text-stroke:1.4cqh #F6F1E8;paint-order:stroke fill}
+.lbl.cell-line>span{-webkit-text-stroke:1cqh #F6F1E8;paint-order:stroke fill}
 .lbl.cell-box{box-sizing:content-box;padding:1.2cqh 1.6cqh;margin:-1.2cqh -1.6cqh;
   background:#F6F1E8;border-radius:.9cqh}
 /* 그림 위 번호 — 아래 캡션 표와 **같은 번호**다 */
