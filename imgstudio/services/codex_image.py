@@ -38,7 +38,23 @@ FALLBACK_UA = f"codex_cli_rs/{FALLBACK_VERSION} (Windows 11; x64) image-studio"
 AUTH_PATH = Path(os.environ.get("CODEX_AUTH_PATH", str(Path.home() / ".codex" / "auth.json")))
 VERSION_PATH = Path.home() / ".codex" / "version.json"
 
-CODEX_MODEL = os.environ.get("CODEX_IMAGE_MODEL", "gpt-5.5")
+def _codex_cli_model() -> Optional[str]:
+    """`~/.codex/config.toml` 의 `model = "..."` — Codex CLI 가 지금 쓰는 모델.
+
+    ★ 모델 이름을 박아 두면 계정이 그 모델을 잃는 날 **전 장이 HTTP 400 으로**
+      실패한다(2026-10-15 실측: "The 'gpt-5.5' model is not supported when using
+      Codex with a ChatGPT account." — 102장 전부). CLI 설정은 계정이 쓸 수 있는
+      모델로 늘 맞춰져 있으므로 그것을 따른다.
+    """
+    try:
+        text = (Path.home() / ".codex" / "config.toml").read_text(encoding="utf-8")
+    except Exception:
+        return None
+    m = re.search(r'^\s*model\s*=\s*"([^"]+)"', text, re.M)
+    return m.group(1) if m else None
+
+
+CODEX_MODEL = os.environ.get("CODEX_IMAGE_MODEL") or _codex_cli_model() or "gpt-5.5"
 
 # image_generation 툴이 받는 크기 규칙(공식 문서 기준).
 #   · 가로·세로 모두 **16의 배수**
@@ -159,11 +175,40 @@ def _persist_refreshed_auth(original: JsonDict, refreshed: JsonDict) -> None:
 
 
 # ── 헤더/버전 ────────────────────────────────────────────────────────────────
+_CLI_VERSION: Optional[str] = None
+
+
+def _cli_version() -> Optional[str]:
+    """`codex --version` → "0.153.4". 한 번만 묻고 기억한다."""
+    global _CLI_VERSION
+    if _CLI_VERSION is None:
+        _CLI_VERSION = ""
+        try:
+            import shutil
+            import subprocess
+            exe = shutil.which("codex")
+            if exe:
+                out = subprocess.run([exe, "--version"], capture_output=True,
+                                     text=True, timeout=15).stdout
+                m = re.search(r"(\d+\.\d+\.\d+)", out or "")
+                if m:
+                    _CLI_VERSION = m.group(1)
+        except Exception:
+            pass
+    return _CLI_VERSION or None
+
+
 def _detect_codex_version() -> str:
     def parse(v: str):
         return tuple(int(p) for p in v.split(".")) if re.fullmatch(r"\d+\.\d+\.\d+", v) else None
 
     floor = FALLBACK_VERSION
+    # ★ 설치된 CLI 버전을 먼저 본다. 새 모델은 낮은 버전 헤더를 거절한다
+    #   (2026-10-15 실측: "The 'gpt-6-astra' model requires a newer version of
+    #   Codex" — version.json 이 없어 0.130.0 이 나가고 있었다).
+    cli = _cli_version()
+    if cli and parse(cli) and parse(cli) >= parse(floor):
+        floor = cli
     try:
         if VERSION_PATH.exists():
             data = json.loads(VERSION_PATH.read_text(encoding="utf-8"))
