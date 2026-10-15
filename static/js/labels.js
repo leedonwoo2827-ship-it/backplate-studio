@@ -20,6 +20,27 @@
 
 import { el, api, icon, toast, debounce } from "./util.js";
 import { state } from "./store.js";
+import { runJob } from "./runner.js";
+
+/* 자동 배치 — 구운 그림을 Claude 가 보고 라벨 자리를 잡는다(`pipeline/s3d_label_fit.py`).
+ * ★ 손편집한 장은 건너뛴다. 결과는 따로 저장되고 손편집이 늘 이긴다.
+ * ★ 끝나면 화면을 통째로 다시 읽는다 — 장마다 자리·표시가 함께 바뀐다. */
+function autoBtn(no, text) {
+  const b = el("button", no ? "btn" : "btn primary");
+  const lab = el("span", null, text);
+  b.append(icon("wand", 14), lab);
+  b.title = no ? "이 장만 그림을 보고 다시 잡습니다(손편집이 있으면 그 아래에 저장만 됩니다)"
+               : "손대지 않은 장 전부를 그림을 보고 잡습니다 — Claude 를 부릅니다(돈이 듭니다)";
+  b.onclick = async () => {
+    if (!state.projectId) return;
+    if (!no && !confirm("손대지 않은 장의 라벨 자리를 Claude 가 그림을 보고 잡습니다. 진행할까요?")) return;
+    const q = no ? `?no=${no}` : "";
+    const ok = await runJob(`/api/projects/${state.projectId}/labels/auto${q}`,
+                            { label: lab, btn: b, name: "라벨 자동 배치" });
+    if (ok) { toast("자동 배치를 마쳤습니다."); location.reload(); }
+  };
+  return b;
+}
 
 export const meta = {
   title: "라벨 자리",
@@ -30,7 +51,7 @@ export const meta = {
     a.target = "_blank";
     a.rel = "noopener";
     a.append(icon("slide", 14), el("span", null, "슬라이드 보기"));
-    return [a];
+    return [autoBtn(0, "자동 배치"), a];
   },
 };
 
@@ -143,8 +164,10 @@ export async function mount(root, ctx) {
   let cur = slides[0];
 
   slides.forEach((s) => {
-    const b = el("button", "lb-tab", String(s.no));
-    b.title = s.title || "";
+    const flag = !s.labels_hand && (s.labels_warn || []).length;
+    const b = el("button", "lb-tab" + (flag ? " warn" : "")
+                           + (s.labels_auto && !s.labels_hand ? " auto" : ""), String(s.no));
+    b.title = (s.title || "") + (flag ? "\n확인 필요: " + s.labels_warn.join(" / ") : "");
     b.onclick = () => { cur = s; draw(); };
     s._tab = b;
     tabs.appendChild(b);
@@ -193,13 +216,20 @@ export async function mount(root, ctx) {
 
     const head = el("div", "lb-head");
     head.append(el("strong", null, `${cur.no}. ${cur.title || ""}`),
-                el("span", "muted", `라벨 ${cur.labels.length}개`));
+                el("span", "muted", `라벨 ${cur.labels.length}개`
+                  + (cur.labels_hand ? " · 손편집" : cur.labels_auto ? " · 자동 배치" : "")));
     side.appendChild(head);
+    if ((cur.labels_warn || []).length) {
+      const w = el("div", "lb-warn");
+      w.appendChild(el("strong", null, cur.labels_hand ? "자동 배치가 남긴 메모" : "확인 필요"));
+      cur.labels_warn.forEach((t) => w.appendChild(el("div", null, "· " + t)));
+      side.appendChild(w);
+    }
 
     cur.labels.forEach((l, i) => side.appendChild(makeRow(l, i)));
 
     const reset = el("button", "btn", "원래대로");
-    reset.title = "손편집을 지우고 지시문이 만든 라벨로 되돌립니다";
+    reset.title = "손편집을 지우고 자동 배치 자리로(없으면 처음 자리로) 되돌립니다";
     reset.onclick = async () => {
       if (!confirm("이 장의 라벨 손편집을 지울까요?")) return;
       const key = String(cur.src_no ?? cur.no);
@@ -210,7 +240,9 @@ export async function mount(root, ctx) {
         toast("되돌렸습니다. 다시 열면 반영됩니다.");
       } catch (e) { toast("실패: " + e.message, "err"); }
     };
-    side.appendChild(reset);
+    const btns = el("div", "lb-btns");
+    btns.append(reset, autoBtn(cur.src_no ?? cur.no, "이 장만 자동 배치"));
+    side.appendChild(btns);
   }
 
   // 상자 하나 — 끌면 옮기고, 오른쪽 아래 손잡이를 끌면 폭이 바뀐다

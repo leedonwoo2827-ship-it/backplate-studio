@@ -27,6 +27,7 @@ from typing import Any, Dict, List
 from core import config, htmldoc, workspace as ws
 from pipeline.registry import ORDER, STAGES, cached_data, read_cache, write_cache
 from pipeline.s3a_imgprompt import labels_of
+from pipeline.s3d_label_fit import merge_auto
 
 MD = re.compile(r"[*_`#>]|^\s*[-•]\s+", re.M)
 
@@ -78,6 +79,8 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
     frames = (cached_data(pid, slug, "s1-frames") or {}).get("items", {})
     repo = cached_data(pid, slug, "s2-repo") or {}
     ov = ws.load_overrides(pid, slug).get("slides", {})
+    # 라벨 자동 배치(s3d) — 원장 자리 위, 손편집 아래에 얹는다
+    _auto = ws.load_labels_auto(pid, slug)
     # 원고 문서별 스타일 — 장마다가 아니라 **문서당 한 벌**만 모은다(아래 deck 에 실림)
     styles: Dict[str, str] = {}
 
@@ -198,6 +201,7 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
             #   장 하나만 끼어들어도 전부 밀리지만 이름표는 안 밀린다
             #   (core/workspace.py 의 ledger_path 주석 참고).
             s["labels"] = labels_of(_led.get(sl.get("data_id") or "") or {})
+            merge_auto(s, key, _auto)
             if sl.get("media_kind") == "html":
                 # ★ **의도와 결과를 가른다.** `image_swap` 은 "이 장은 그림으로
                 #   갈 장이다" 라는 **작정**이고, 그림이 아직 안 왔어도 참이다.
@@ -213,6 +217,9 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
                 s[k] = {**s[k], **v}
             else:
                 s[k] = v
+        if (ov.get(key) or {}).get("labels") is not None:
+            s["labels_auto"] = False
+            s["labels_hand"] = True
 
         # 줄이 몇 초에 뜨는가 — **손편집이 들어온 뒤에** 확정한다(`html_at` 이
         # 오버라이드로 오므로). 재생기도 수정 화면도 이 값 하나만 본다.

@@ -244,8 +244,11 @@ _DEFS: List[Stage] = [
                 "s6-script", "s3b-images", "s11-audio"],
           # overrides_rev — 손편집이 조립을 낡게 만든다(위 server.py 참고)
           # image_swap — 그림으로 갈아끼우기를 켜고 끄면 덱이 통째로 달라진다
+          # labels_auto_rev — 라벨 자동 배치(s3d)가 자리를 바꾸면 덱을 다시 세운다.
+          #   s3d 를 deps 에 넣지 않는 이유: 그러면 Claude 단계를 안 돌린 프로젝트의
+          #   조립이 막힌다. 자동 배치는 있으면 얹고 없으면 원장 자리 그대로다.
           reads=["title", "slug", "live_url", "items", "brand", "overrides_rev",
-                 "image_swap"],
+                 "image_swap", "labels_auto_rev"],
           code_version=2),
     # `bgm` — 배경음악을 갈아 끼우면 완성본만 다시 구우면 된다. 조립(s8)은
     # 배경음악을 모르므로 여기서만 읽는다. 결정론이라 돈이 들지 않는다.
@@ -263,6 +266,13 @@ _DEFS: List[Stage] = [
     Stage("s3c-images-run", "그림 굽기", "images", "ext",
           deps=["s3a-imgprompt", "s3b-images"],
           reads=["slug", "title", "image_fit"], code_version=2),
+    # ★ **라벨 자동 배치.** 구운 그림을 Claude 비전이 보고 라벨 자리(x·y·폭·셀색)를
+    #   잡는다(`pipeline/s3d_label_fit.py`). 결과는 `labels.auto.json` — 손편집
+    #   (`deck.overrides.json`)이 언제나 그 위에서 이긴다. 그림 굽기(s3c)를 안 쓰고
+    #   그림을 손으로 넣는 프로젝트도 있어서 s3b(그림 받기)에 딸린다.
+    Stage("s3d-label-fit", "라벨 자동 배치", "deck", "claude",
+          deps=["s3a-imgprompt", "s3b-images"], prompt="label_fit.md",
+          reads=["image_fit"], code_version=1),
     # ★ **HyperFrames 렌더.** s12-video(Playwright 스틸 + ffmpeg 이어붙이기)를
     #   대신한다. 글자가 DOM 이라 GSAP 이 직접 움직이고, 상자를 되찾을 일이 없다.
     #   오디오도 HyperFrames 가 먹고, 마지막에 −16 LUFS 로 맞춘다.

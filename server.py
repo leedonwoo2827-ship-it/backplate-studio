@@ -55,6 +55,7 @@ import pipeline.s12h_hyper      # noqa: F401  — 11판: HyperFrames 렌더
 # ★ 모션은 **스테이지가 아니다** — STAGES 에 붙지 않으므로 이름을 들고 쓴다
 from pipeline import s13_motion as motion
 from pipeline import s3a_imgprompt as imgprompt
+from pipeline import s3d_label_fit as label_fit  # 라벨 자동 배치(스테이지 등록도 이 import 가 한다)
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC = APP_DIR / "static"
@@ -1157,6 +1158,7 @@ def get_deck(pid: int) -> Dict[str, Any]:
     #   그림은 번호가 키고(s3b), 원장은 **이름표(data_id)가 키다**.
     imgs = (cached_data(pid, slug, "s3b-images") or {}).get("images", {})
     led = (ws.load_ledger(pid, slug) or {}).get("by_id", {})
+    auto = ws.load_labels_auto(pid, slug)
 
     titles = {it["id"]: it.get("title") for it in doc.get("items", [])}
     out: List[Dict[str, Any]] = []
@@ -1195,12 +1197,17 @@ def get_deck(pid: int) -> Dict[str, Any]:
         s["images"] = shots
         s["image"] = shots[0] if shots else ""
         s["labels"] = imgprompt.labels_of(led.get(sl.get("data_id") or "") or {})
+        # 라벨 자동 배치(s3d) — 원장 자리 위, 손편집 아래. 조립(s8)과 같은 함수다.
+        label_fit.merge_auto(s, no, auto)
         # 손편집이 마지막에 이긴다
         for k, v in (ov_slides.get(no) or {}).items():
             if isinstance(v, dict) and isinstance(s.get(k), dict):
                 s[k] = {**s[k], **v}
             else:
                 s[k] = v
+        if (ov_slides.get(no) or {}).get("labels") is not None:
+            s["labels_auto"] = False
+            s["labels_hand"] = True
         # ★ 화면에 실제로 박히는 본문. **손편집 뒤에** 정한다 — 문구 단계가 낸 것도,
         #   구조 설계의 메모도, 사람이 고쳐 쓴 것도 결국 여기로 모인다. 앞에서
         #   정하면 사람이 써 넣은 글이 초안 화면에서 통째로 사라진다.
@@ -2416,6 +2423,12 @@ def post_overrides(pid: int, body: OverrideIn) -> Dict[str, Any]:
     def merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
         out = dict(a)
         for k, v in (b or {}).items():
+            if v is None:
+                # ★ `null` 은 **그 손편집을 지운다**는 뜻이다. 예전에는 null 을 그대로
+                #   적어서, 「라벨 자리」의 「원래대로」 가 원장 라벨로 돌아가는 대신
+                #   그 장 라벨을 **통째로 없앴다**(덱이 labels=None 을 받았다).
+                out.pop(k, None)
+                continue
             out[k] = merge(out.get(k, {}), v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
         return out
 
@@ -2455,6 +2468,26 @@ def run_stage(pid: int, stage: str, force: bool = False) -> Dict[str, Any]:
         job = reg.start(
             project_id=pid, stage=stage, label=spec.label,
             work=lambda j: spec.run(j, pid, doc["slug"], doc, force=force),
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return job.to_dict()
+
+
+@app.post("/api/projects/{pid}/labels/auto")
+def labels_auto(pid: int, no: int = 0, force: bool = False) -> Dict[str, Any]:
+    """「라벨 자리」 화면의 「자동 배치」. `no` 를 주면 그 장만(손편집 장이어도) 다시 잡는다.
+
+    ★ 전체는 스테이지 실행(`/stages/s3d-label-fit/run`)과 같다. 장 하나만 돌리는
+      창구가 따로 필요해서 둔다 — 스테이지 실행은 `force` 밖에 못 받는다.
+    """
+    doc = _find(pid)
+    reg = get_registry()
+    only = [no] if no > 0 else None
+    try:
+        job = reg.start(
+            project_id=pid, stage="s3d-label-fit", label="라벨 자동 배치",
+            work=lambda j: label_fit.run(j, pid, doc["slug"], doc, force=force, only=only),
         )
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e

@@ -77,6 +77,8 @@ ASSETS = "assets"          # 11_완성/assets/
 F_PROJECT = "project.json"
 F_DECK = "deck.json"
 F_OVERRIDES = "deck.overrides.json"
+# 라벨 자동 배치(s3d) 결과. 손편집(overrides)과 **따로** 둔다 — 손편집이 늘 이긴다.
+F_LABELS_AUTO = "labels.auto.json"
 F_LEDGER = "원장.json"
 # 기계가 읽는 것을 치워 두는 자리. 사람이 여는 폴더에는 집어야 할 파일만 남긴다.
 BAK = "bak"
@@ -246,6 +248,20 @@ def overrides_path(pid: int, slug_name: str, *, create: bool = False) -> Path:
 
 def load_overrides(pid: int, slug_name: str) -> Dict[str, Any]:
     return read_json(overrides_path(pid, slug_name), {}) or {}
+
+
+def labels_auto_path(pid: int, slug_name: str, *, create: bool = False) -> Path:
+    return step_dir(pid, slug_name, "deck", create=create) / F_LABELS_AUTO
+
+
+def load_labels_auto(pid: int, slug_name: str) -> Dict[str, Any]:
+    """장 번호(문자열) → {"labels", "warn", "pairs", "sig", "at"}. 없으면 {}."""
+    return (read_json(labels_auto_path(pid, slug_name), {}) or {}).get("slides", {}) or {}
+
+
+def save_labels_auto(pid: int, slug_name: str, slides: Dict[str, Any]) -> Path:
+    return write_json(labels_auto_path(pid, slug_name, create=True),
+                      {"slides": slides, "at": _now()})
 
 
 def save_overrides(pid: int, slug_name: str, doc: Dict[str, Any]) -> Path:

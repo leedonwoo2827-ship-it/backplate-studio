@@ -71,6 +71,8 @@ set PY=.venv-app\Scripts\python
 %PY% tools\run_stage.py <pid> s3b-images         지시문 JSON 내보내기
 %PY% tools\run_stage.py <pid> s3c-images-run     그림 굽기        ← 돈(구독 할당량)
    ■ 사람이 개입: 그림 두세 장을 눈으로 본다. 톤이 어긋나면 여기서 멈춘다
+%PY% toolsun_stage.py <pid> s3d-label-fit      라벨 자동 배치    ← 돈(Claude)
+   ■ 사람이 개입: 「라벨 자리」 화면에서 **주황 번호(확인 필요)만** 열어 고친다
 %PY% tools\run_stage.py <pid> s6-script          내레이션 대본    ← 돈(Claude)
 %PY% tools\run_stage.py <pid> s10-tts s11-audio  음성 · 자막
 %PY% tools\run_stage.py <pid> s8-assemble        덱 조립
@@ -87,6 +89,7 @@ set PY=.venv-app\Scripts\python
 |---|---|---|
 | `s2b-outline` · `s6-script` · `s3a-imgprompt` | Claude 구독 | 장당 $1~2 |
 | `s3c-images-run` | ChatGPT 구독 할당량 | 그림 장수만큼 |
+| `s3d-label-fit` | Claude 구독(비전) | 5장에 약 $0.7 |
 
 `s3c`는 **이어하기**가 된다. 있는 번호는 건너뛰므로 중간에 끊겨도 남은 것만 굽는다.
 그래서 **두세 장만 먼저 굽고 눈으로 본 뒤** 나머지를 돌리는 것이 정석이다.
@@ -155,6 +158,18 @@ ffmpeg -i out.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=summary -f null
 - 라우드니스는 **합본에** 건다. 장마다 걸면 장이 바뀔 때마다 소리가 출렁인다.
 - 순서는 렌더 → 정규화다. 반대로 하면 다시 인코딩하면서 이득이 풀린다.
 
+### 라벨 자동 배치 (s3d)
+
+구운 그림을 Claude 비전이 보고 라벨 자리(x · y · 폭 · 셀색)를 잡는다. 규칙은
+`llm/prompts/label_fit.md` — 사람이 「라벨 자리」 화면에서 직접 맞추며 내린 판단
+(그림과 짝 맞추기 · 핵심을 가리지 않기 · 판은 예외 · 경고는 손댈 장에만)을 옮긴 것이다.
+
+- 결과는 `10_덱/labels.auto.json`. **손편집한 장은 건너뛰고, 덮지도 않는다.**
+- 경고가 남은 장은 「라벨 자리」 화면의 번호가 주황이다. 그 장만 열어 고치면 된다.
+- 화면 오른쪽 위 「자동 배치」(전 장) · 장 옆 「이 장만 자동 배치」.
+- 예시(few-shot)는 `llm/prompts/label_fit_examples/`. 사람이 잘 맞춘 장으로 바꾸려면
+  `%PY% tools\export_label_examples.py <pid> <장> <장>`.
+
 ---
 
 ## 6. 손편집은 언제나 이긴다
@@ -166,7 +181,8 @@ ffmpeg -i out.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=summary -f null
 규칙을 지켜야 한다.
 
 라벨은 **배열을 통째로** 덮는다. 한 번 손대면 그 장의 라벨은 사람이 가져간다.
-되돌리려면 「라벨 자리」 화면의 **원래대로**.
+되돌리려면 「라벨 자리」 화면의 **원래대로** — 자동 배치 자리로(없으면 처음 자리로) 돌아간다.
+쌓이는 순서는 원장 → 자동 배치(s3d) → 손편집이다.
 
 ---
 
