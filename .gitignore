@@ -4,6 +4,7 @@
 
 .venv/
 .venv-app/
+.venv-omnivoice/
 __pycache__/
 *.pyc
 *.egg-info/
@@ -64,4 +65,5 @@ review.html
 node_modules/
 .venv/
 .venv-app/
+.venv-omnivoice/
 static/fonts/

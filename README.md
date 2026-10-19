@@ -82,7 +82,7 @@ run.bat          (mac·linux: ./run.sh)      → http://localhost:5178
 | [05-흐름](docs/05-흐름.md) | 흐름도와 표 |
 | [06-핵심-개념](docs/06-핵심-개념.md) | 왜 이렇게 만들었나. 고치기 전에 읽을 것 |
 | [07-화면-규칙](docs/07-화면-규칙.md) | 새 화면을 만들 때 협상 대상이 아닌 둘 |
-| [08-TTS](docs/08-TTS.md) | 슈퍼토닉3 설치와 연결 |
+| [08-TTS](docs/08-TTS.md) | OmniVoice(보이스 클로닝)·슈퍼토닉3 설치와 연결 |
 
 운영 지침은 **[AGENTS.md](AGENTS.md)** 한 장으로 따로 있습니다 — 판(`image_fit`),
 돈이 드는 단계, 막혔을 때 표.
@@ -98,9 +98,11 @@ run.bat          (mac·linux: ./run.sh)      → http://localhost:5178
 | ffmpeg | 프레임 추출·영상 변환이 안 됩니다 |
 | `gh` CLI | 레포 수집이 안 됩니다 (영상만으로도 덱은 나옵니다) |
 | `codex` 로그인 | 그림이 안 나옵니다 |
-| 슈퍼토닉3 가중치(`assets/`, 396MB) | 음성이 안 나옵니다. 덱·자막은 전부 나옵니다 |
+| TTS 엔진 — OmniVoice(NVIDIA GPU, `setup-omnivoice.bat`) 또는 슈퍼토닉3 가중치(`assets/`, 396MB, CPU) | 음성이 안 나옵니다. 덱·자막은 전부 나옵니다 |
 | **디스크 여유** | 영상이 안 나옵니다 — 아래 |
 
+GPU PC 는 `setup.bat` 다음에 `setup-omnivoice.bat <내목소리.wav>` 를 한 번 돌리면
+그 목소리를 복제한 OmniVoice 로 합성합니다([08-TTS](docs/08-TTS.md)).
 `setup.bat` 이 `tools/wire_tts.py` 로 `showcase.config.local.json` 을 채웁니다.
 엔진 코드는 **이 레포 안 `tts/`** 에 있고(예전엔 형제 폴더의 `voicewright/`),
 밖에서 받아야 하는 것은 가중치와 엔진 venv 둘뿐입니다. 막히면 진단이 이름으로
