@@ -148,9 +148,14 @@ def _refresh_access_token(refresh_token: str, timeout: int = 30) -> JsonDict:
                 oauth_err = parsed["error"]
         except Exception:
             pass
-        if oauth_err == "invalid_grant":
+        # ★ `invalid_grant` 만 보면 안 된다. 세션이 죽으면 갱신 창구가 그냥 401/403 을
+        #   돌려준다 — 그걸 일반 오류로 넘기면 장마다 세 번씩 다시 시도하다 **조용히**
+        #   전부 실패한다(2026-10-13·10-19 두 번 실측: 「토큰 갱신 실패: HTTP 401」 만
+        #   쌓이고 화면은 「완료」). 로그인 문제로 올려서 첫 장에서 전체를 세운다.
+        if oauth_err == "invalid_grant" or e.code in (400, 401, 403):
             raise NotAuthenticated(
-                "refresh_token 이 만료되었습니다 — `codex login` 으로 다시 로그인하세요.",
+                f"Codex 로그인이 끊겼습니다(토큰 갱신 HTTP {e.code}) — 워크스페이스에서 "
+                "로그아웃 후 다시 로그인하거나 터미널에서 `codex login` 을 하세요.",
                 status=e.code,
             )
         raise ImageEngineError(

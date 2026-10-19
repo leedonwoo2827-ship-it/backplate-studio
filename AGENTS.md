@@ -71,7 +71,7 @@ set PY=.venv-app\Scripts\python
 %PY% tools\run_stage.py <pid> s3b-images         지시문 JSON 내보내기
 %PY% tools\run_stage.py <pid> s3c-images-run     그림 굽기        ← 돈(구독 할당량)
    ■ 사람이 개입: 그림 두세 장을 눈으로 본다. 톤이 어긋나면 여기서 멈춘다
-%PY% toolsun_stage.py <pid> s3d-label-fit      라벨 자동 배치    ← 돈(Claude)
+%PY% tools\run_stage.py <pid> s3d-label-fit      라벨 자동 배치    ← 돈(Claude)
    ■ 사람이 개입: 「라벨 자리」 화면에서 **주황 번호(확인 필요)만** 열어 고친다
 %PY% tools\run_stage.py <pid> s6-script          내레이션 대본    ← 돈(Claude)
 %PY% tools\run_stage.py <pid> s10-tts s11-audio  음성 · 자막
