@@ -11,76 +11,322 @@
 #   - 새 항목 추가 후엔 즉시 반영 (서버 재시작 불필요)
 
 rules:
-  "#edchat": 샵에드챗
   10세기: 십 세기
   11세기: 십일 세기
   12세기: 십이 세기
   17세기: 십칠 세기
-  1EdTech: 원에드테크
+  1EdTech: 원에듀테크
+  1위: 일위
   7세기: 칠 세기
+  AB: 에이비
+  ACF: 에이씨에프
+  AD: 에이디
+  ADDIE: 애디
   ADSL: 에이디에스엘
   AI: 에이아이
+  AIC: 에이아이씨
   ALEKS: 알렉스
+  ALL: 올
+  ALTER: 알터
+  AND: 앤드
+  ANY: 애니
   API: 에이피아이
   AR: 에이알
+  ARIMA: 아리마
+  ARMA: 에이알엠에이
+  AS: 애즈
+  AS 곡선: 에이에스 곡선
+  ASC: 에이에스씨
+  ATM: 에이티엠
+  AUC: 에이유씨
+  AVG: 에이브이지
   BBC: 비비씨
   BERT: 버트
+  BETWEEN: 비트윈
   BGM: 비지엠
+  BIC: 비아이씨
+  BY: 바이
+  CASCADE CONSTRAINTS: 캐스케이드 컨스트레인츠
+  CASE: 케이스
+  CBS: 씨비에스
   CCK08: 씨씨케이공팔
   CCTV: 씨씨티브이
+  CD: 씨디
   CERN: 세른
+  CHAR: 씨에이치에이알
+  CHECK: 체크
   CNN: 씨엔엔
+  COALESCE: 코얼레스
+  COLUMN: 칼럼
+  COMMIT: 커밋
+  CONNECT BY: 커넥트 바이
+  CONNECT BY ISLEAF: 커넥트 바이 이즈 리프
+  CONNECT BY ROOT: 커넥트 바이 루트
+  COUNT: 카운트
   CPU: 씨피유
+  CREATE: 크리에이트
+  CRISP-DM: 크리스프-디엠
+  CROSS JOIN: 크로스 조인
+  CTAS: 씨티에이에스
+  CTW: 씨티더블유
+  CUMEDIST: 큠 디스트
   ChatGPT: 챗지피티
+  DCL: 디씨엘
+  DDL: 디디엘
+  DECODE: 디코드
+  DEFAULT: 디폴트
+  DELETE: 딜리트
+  DENSERANK: 댄스랭크
+  DENSE_RANK: 덴스 랭크
+  DESC: 디에스씨
   DIKSHA: 딕샤
+  DISTINCT: 디스틴트
+  DM: 디엠
+  DML: 디엠엘
+  DROP: 드롭
+  DVD: 디브이디
   EBS: 이비에스
+  EBSi: 이비에스아이
+  ELSE: 엘스
+  EM: 이엠
+  END: 엔드
+  ETS: 이티에스
+  EXISTS: 이그지스트
+  F1: 에프원
+  FALSE: 폴스
+  FCC: 에프씨씨
+  FERPA: 퍼파
+  FIRSTVALUE: 퍼스트 밸류
+  FN: 에프엔
+  FOMC: 에프오엠씨
+  FOREIGN KEY: 포린 키
+  FP: 에프피
+  FROM: 프롬
+  FULL: 풀
+  FULL JOIN: 풀 조인
+  GDP: 지디피
   GPA: 지피에이
   GPS: 지피에스
   GPU: 지피유
+  GRANT: 그랜트
+  GROUP: 그룹
+  GROUP BY: 그룹 바이
+  GROUPING: 그루핑
+  H.264: 에이치-이륙사
   H5P: 에이치 파이브 피
+  HAVING: 해빙
+  HOPE: 호프
   HTML5: 에이치티엠엘-파이브
   HTTP: 에이치티티피
   HTTPS: 에이치티티피에스
   IBM: 아이비엠
   ICS: 아이씨에스
   IDE: 아이디이
+  IEEE: 아이 트리플 이
   IELTS: 아이엘츠
+  IN: 인
+  INDEX: 인덱스
+  INNER JOIN: 이너 조인
+  INSERT: 인서트
+  INTO: 인투
+  IS: 아이에스
+  IS NULL: 이즈 널
+  JOIN: 조인
   JSON: 제이슨
+  JVC: 제이브이씨
   KBS: 케이비에스
+  KDD: 케이디디
   KERIS: 케리스
+  KEY: 키
+  KNN: 케이엔엔
+  KUHT: 케이유에이치티
   Khanmigo: 칸미고
+  LAG: 래그
+  LAST: 엘에이에스티
+  LASTVALUE: 라스트 밸류
+  LEAD: 리드
+  LEFT: 엘이에프티
+  LEFT JOIN: 레프트 조인
+  LEVEL: 레벨
+  LIKE: 라이크
+  LINK: 링크
   LMS: 엘엠에스
+  LOOCV: 엘오오씨브이
+  LPAD: 엘피에이디
+  M1: 엠원
+  MA: 엠에이
+  MAR: 엠에이알
+  MARGIN: 마진
+  MAX: 맥스
   MBC: 엠비씨
   MC: 엠씨
+  MCAR: 엠씨에이알
+  MIN: 민
+  MINUS: 마이너스
   MIT: 엠아이티
+  MMF: 엠엠에프
+  MOD: 엠오디
   MOOC: 무크
+  MP: 엠피
+  MP3: 엠피쓰리
+  MPEG: 엠피이지
   MV: 엠브이
+  NA: 엔에이
+  NAIRU: 나이루
   NASA: 나사
+  NATURAL: 내추럴
   NHK: 엔에이치케이
+  NMAR: 엔엠에이알
+  NOT: 낫
+  NOT NULL: 낫 널
+  NTILE: 엔타일
+  NTU: 엔티유
+  NULL: 널
+  NULLIF: 널이프
+  NULLS FIRST: 널스 퍼스트
+  NULLS LAST: 널스 라스트
+  NVL: 엔브이엘
   NeurIPS: 뉴립스
   OECD: 오이씨디
+  OLAP: 오엘에이피
+  OLTP: 오엘티피
+  ON: 온
+  OOB: 오오비
+  OPTION: 옵션
+  OR: 오어
+  ORDER: 오더
+  ORDER BY: 오더 바이
+  ORDER SIBLINGS BY: 오더 시블링스 바이
   OST: 오에스티
+  OUTER JOIN: 아우터 조인
+  OVER: 오버
   OpenAI: 오픈에이아이
+  Oracle: 오라클
+  PACF: 피에이씨에프
+  PARTITION BY: 파티션 바이
+  PATH: 피에이티에이치
+  PBS: 피비에스
   PDF: 피디에프
+  PERCENTRANK: 퍼센트 랭크
   PLATO: 플레이토
+  PRIMARY KEY: 프라이머리 키
+  PRIOR: 프라이어
+  PhET: 피에이치이티
+  RANGE: 레인지
+  RANK: 랭크
+  RATIOTOREPORT: 래시오 투 리포트
+  RENAME: 리네임
+  REVOKE: 리보크
+  RIGHT JOIN: 라이트 조인
+  ROC: 알오씨
+  ROLLBACK: 롤백
+  ROOT: 알오오티
+  ROWID: 로우아이디
+  ROWNUM: 로우넘
+  ROWNUMBER: 로우 넘버
+  ROWS: 로우스
+  ROW_NUMBER: 로우 넘버
   RSS: 알에스에스
+  SAVEPOINT: 세이브포인트
   SBS: 에스비에스
   SCORM: 스콤
   SDK: 에스디케이
+  SELECT: 셀렉트
+  SET: 셋
+  SQL: 에스큐엘
+  SQL Server: 에스큐엘 서버
+  SQLD: 에스큐엘디
+  START WITH: 스타트 위드
+  SUBSTR: 서브스트링
+  SUM: 썸
+  SYS: 에스와이에스
+  SYS CONNECT BY PATH: 시스 커넥트 바이 패스
+  SoLAR: 솔라
+  TABLE: 테이블
+  TABLE ACCESS BY INDEX ROWID: 테이블 액세스 바이 인덱스 로우아이디
+  TCL: 티씨엘
   TED: 테드
+  THEN: 덴
+  TN: 티엔
+  TO: 티오
   TOEFL: 토플
   TOEIC: 토익
+  TO_CHAR: 투 캐릭터
+  TO_DATE: 투 데이트
+  TP: 티피
+  TPS: 티피에스
+  TRIM: 티알아이엠
+  TRUE: 트루
+  TRUNCATE: 트렁케이트
+  TV: 티브이
+  UNBOUNDED FOLLOWING: 언바운디드 팔로잉
+  UNBOUNDED PRECEDING: 언바운디드 프리시딩
   UNESCO: 유네스코
   UNICEF: 유니세프
+  UNION: 유니온
+  UNION ALL: 유니온 올
+  UNIQUE: 유니크
+  UNKNOWN: 언노운
+  UPDATE: 업데이트
   URL: 유알엘
   USB: 유에스비
+  USING: 유징
+  VALUES: 밸류스
+  VHS: 브이에이치에스
+  VIEW: 뷰
   VR: 브이알
+  VRX: 브이알엑스
   W3C: 더블류쓰리씨
   WHA: 더블유에이치에이
   WHATWG: 왓 더블유지
+  WHEN: 웬
+  WHERE: 웨어
   WHO: 더블유에이치오
+  WITH: 위드
   XML: 엑스엠엘
   YTN: 와이티엔
+  all: 올
+  alternative: 얼터너티브
+  apply: 어플라이
+  as.character: 애즈 캐릭터
+  as.integer: 애즈 인티저
+  as.numeric: 애즈 뉴메릭
+  by: 바이
+  byrow: 바이로우
   cMOOC: 씨무크
+  cast: 캐스트
+  cbind: 씨바인드
+  complete.cases: 컴플리트 케이시스
+  cut off: 컷 오프
+  data.table: 데이터 테이블
+  ddply: 디디플라이
+  dim: 딤
+  drop: 드롭
+  greater: 그레이터
+  head: 헤드
+  k-medoids: 케이 메도이즈
+  length: 렝스
+  levels: 레벨스
+  matrix: 매트릭스
+  melt: 멜트
+  merge: 머지
+  p-value: 피-밸류
+  plyr: 플라이알
+  rbind: 알바인드
+  reshape: 리셰이프
+  sapply: 에스어플라이
+  sqldf: 에스큐엘디에프
+  stationary: 스테이셔너리
+  str: 에스티알
+  summary: 서머리
+  table: 테이블
+  tail off: 테일 오프
+  tapply: 티어플라이
+  unlist: 언리스트
   xAPI: 엑스에이피아이
   xMOOC: 엑스무크
+  개수: 갯수
+  배지: 뱃지
+  셉니다: 셈니다
+  인과: 잉과
+  지적재산권: 지쩍 재산권

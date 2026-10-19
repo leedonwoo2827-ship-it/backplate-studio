@@ -57,10 +57,16 @@ def dict_path() -> Optional[Path]:
         b = Path(str(base))
         for cand in (b.parent / "config" / "pronunciation_map.yaml",
                      b / "config" / "pronunciation_map.yaml",
-                     b / "voicewright" / "config" / "pronunciation_map.yaml"):
+                     b / "voicewright" / "config" / "pronunciation_map.yaml",
+                     b / "tts" / "config" / "pronunciation_map.yaml"):
             if cand.is_file():
                 return cand
-    return None
+    # ★ 레포에 들여온 음성 엔진(`tts/`)이 읽는 사전. 위 후보는 voicewright 를 따로 둘
+    #   때의 자리라, 엔진을 레포 안으로 옮긴 뒤로 화면이 이 파일을 못 찾았다 —
+    #   73개가 들어 있는데 「사전 0개 · 저장 실패」 로 보였다(2026-10-19).
+    #   엔진 쪽 기본 자리는 `tts/settings.py` 의 pronunciation_map_path 와 같다.
+    own = Path(__file__).resolve().parent.parent / "tts" / "config" / "pronunciation_map.yaml"
+    return own if own.is_file() else None
 
 
 def rules() -> Dict[str, str]:
