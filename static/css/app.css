@@ -2379,7 +2379,7 @@ label.check input { width: auto; }
 .lb-warn{margin:0 0 12px;padding:8px 10px;border-radius:6px;font-size:12.5px;line-height:1.5;
   background:rgb(var(--warn-rgb) / .08);color:rgb(var(--warn-rgb))}
 .lb-warn strong{display:block;margin-bottom:2px}
-.lb-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.lb-btns{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
 .lb-save{margin-left:auto;font-size:12px;color:var(--ink-muted)}
 .lb-save.ok{color:var(--ok)} .lb-save.err{color:#c0392b}
 

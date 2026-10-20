@@ -45,14 +45,8 @@ function autoBtn(no, text) {
 export const meta = {
   title: "라벨 자리",
   subtitle: "배경판 위의 글을 고치고 끌어서 옮깁니다",
-  actions: () => {
-    const a = el("a", "btn");
-    a.href = "/preview/" + (state.projectId || 0);
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.append(icon("slide", 14), el("span", null, "슬라이드 보기"));
-    return [autoBtn(0, "자동 배치"), a];
-  },
+  // 「슬라이드 보기」 는 뺐다 — 이 화면에서는 안 쓰고, 덱 화면에 같은 버튼이 있다
+  actions: () => [autoBtn(0, "자동 배치")],
 };
 
 // 상자 폭(%) — 너무 좁으면 두 글자씩 끊기고, 너무 넓으면 그림을 가린다
@@ -219,15 +213,7 @@ export async function mount(root, ctx) {
                 el("span", "muted", `라벨 ${cur.labels.length}개`
                   + (cur.labels_hand ? " · 손편집" : cur.labels_auto ? " · 자동 배치" : "")));
     side.appendChild(head);
-    if ((cur.labels_warn || []).length) {
-      const w = el("div", "lb-warn");
-      w.appendChild(el("strong", null, cur.labels_hand ? "자동 배치가 남긴 메모" : "확인 필요"));
-      cur.labels_warn.forEach((t) => w.appendChild(el("div", null, "· " + t)));
-      side.appendChild(w);
-    }
-
-    cur.labels.forEach((l, i) => side.appendChild(makeRow(l, i)));
-
+    // ★ 버튼은 장 제목 바로 밑. 맨 아래에 두면 라벨이 많은 장에서 스크롤해야 보였다
     const reset = el("button", "btn", "원래대로");
     reset.title = "손편집을 지우고 자동 배치 자리로(없으면 처음 자리로) 되돌립니다";
     reset.onclick = async () => {
@@ -243,6 +229,14 @@ export async function mount(root, ctx) {
     const btns = el("div", "lb-btns");
     btns.append(reset, autoBtn(cur.src_no ?? cur.no, "이 장만 자동 배치"));
     side.appendChild(btns);
+    if ((cur.labels_warn || []).length) {
+      const w = el("div", "lb-warn");
+      w.appendChild(el("strong", null, cur.labels_hand ? "자동 배치가 남긴 메모" : "확인 필요"));
+      cur.labels_warn.forEach((t) => w.appendChild(el("div", null, "· " + t)));
+      side.appendChild(w);
+    }
+
+    cur.labels.forEach((l, i) => side.appendChild(makeRow(l, i)));
   }
 
   // 상자 하나 — 끌면 옮기고, 오른쪽 아래 손잡이를 끌면 폭이 바뀐다
