@@ -1355,6 +1355,44 @@ def get_cues(pid: int) -> Dict[str, Any]:
     return {"project_id": pid, "ready": True, "cues": cue_map(deck)}
 
 
+@app.get("/review/{pid}.pdf")
+def review_pdf(pid: int, pics: int = 1):
+    """검수지 PDF — **양면 인쇄용.** 1쪽 표지, 씬은 늘 짝수 쪽에서 시작한다.
+
+    ★ HTML 판(`/review/{pid}`)은 브라우저가 쪽을 나눠서 씬이 석 장이 되면 짝이
+      어긋난다. 여기는 크롬으로 한 번 찍어 씬별 장수를 세고, 홀수인 씬에 빈 면을
+      끼워 다시 찍는다(render/review_pdf.py). 인쇄해 상철 제본할 것은 이걸 쓴다.
+    ★ 파일은 `11_완성/<폴더>-검수지.pdf` 에 남긴다 — 메일에 붙일 것이 그 파일이다.
+    ★ `.pdf` 길이 `/review/{pid}` 보다 **앞에** 있어야 한다. 뒤에 두면 `3.pdf`
+      가 pid 로 잡혀 422 가 난다.
+    """
+    from fastapi.responses import FileResponse, HTMLResponse
+
+    from render.review_pdf import find_chrome, make_pdf
+
+    deck = get_deck(pid)
+    if not deck.get("ready"):
+        return HTMLResponse(
+            "<meta charset='utf-8'><body style=\"font-family:system-ui;padding:40px\">"
+            "<h2>아직 덱 구조가 없습니다</h2></body>", status_code=200)
+    chrome = find_chrome()
+    if not chrome:
+        return HTMLResponse(
+            "<meta charset='utf-8'><body style=\"font-family:system-ui;padding:40px\">"
+            "<h2>PDF 를 찍을 크롬이 없습니다</h2><p>구글 크롬(또는 엣지)을 깔거나 "
+            f"<a href='/review/{pid}'>HTML 검수지</a>를 열어 Ctrl+P 로 저장하세요. "
+            "그 경우 씬이 석 장이 되면 양면 짝이 어긋날 수 있습니다.</p></body>",
+            status_code=200)
+    doc = _find(pid)
+    pdir = ws.project_dir(pid, doc["slug"], create=False)
+    out = pdir / ws.STEPS["dist"][0] / f"{pdir.name}-검수지.pdf"
+    make_pdf(deck, img_path=lambda rel: pdir / rel, out=out, chrome=chrome,
+             build_kw={"pics": bool(pics)})
+    return FileResponse(str(out), media_type="application/pdf",
+                        filename=out.name,
+                        content_disposition_type="inline")
+
+
 @app.get("/review/{pid}")
 def review_sheet(pid: int, n: int | None = None):
     """검수지 — 씬마다 A4 가로 한 장. SME 에게 보낼 PDF 의 원본이다.

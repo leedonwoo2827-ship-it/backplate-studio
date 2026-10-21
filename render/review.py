@@ -176,6 +176,40 @@ tr{break-inside:avoid;page-break-inside:avoid}
 .foot{flex:0 0 auto;display:flex;gap:10px;font-size:7.2pt;color:#a8a296;
   border-top:.4pt solid #e9e4db;padding-top:1.4mm;margin-top:2mm}
 .foot .r{margin-left:auto}
+/* 쪽 표식 — 종이에서는 안 보이고(흰 글자) PDF 본문에는 남는다. PDF 를 뽑을 때
+   「이 쪽이 어느 씬인가」를 이걸로 읽어 양면 짝을 맞춘다(review_pdf.py). */
+.pgm{color:#fff;font-size:1pt;line-height:0}
+
+/* ── 양면·상철 제본 ─────────────────────────────────────────────────────
+   ★ **씬 하나가 펼침 하나다.** 위로 넘기는 양면 인쇄(상철)에서는 2·3쪽, 4·5쪽이
+     한 번에 보인다. 그래서 1쪽은 제목만 둔 표지로 쓰고, 씬은 늘 **짝수 쪽에서
+     시작**한다 — 그림이 위, 캡션·대사가 아래에 같이 펼쳐진다.
+   ★ 대사가 길어 씬이 석 장이 되면 다음 씬이 홀수 쪽으로 밀린다. 그때는 **빈
+     면을 한 장 끼워** 짝을 되돌린다. 브라우저의 `break-before:left` 는 크롬이
+     안 듣는다(실측 2026-09-22) — 그래서 파이썬이 장수를 세어 끼운다.
+   ★ 빈 면이 **정말로 한 쪽이 되려면 높이가 있어야** 한다. 빈 상자에 쪽 나누기만
+     달면 앞 상자의 나누기와 합쳐져 사라진다. */
+.sheet.cover{justify-content:center;align-items:center;text-align:center;
+  border-top:6pt solid #1F4E79;padding:18mm 24mm}
+.sheet.cover .cv-k{font-size:9pt;color:#9a958a;letter-spacing:.3em;margin-bottom:6mm}
+.sheet.cover .cv-t{font-size:26pt;font-weight:800;color:#1F4E79;
+  letter-spacing:-.03em;margin:0 0 5mm;word-break:keep-all;line-height:1.25}
+.sheet.cover .cv-s{font-size:10pt;color:#5a6472;margin:0 0 8mm}
+/* 씬 번호 칸 — 한 줄에 열 개. 본 씬에 표시하는 체크판이다. 칸은 연필로 표시할
+   크기(8.6mm)여야 한다. */
+.sheet.cover .cv-grid{display:grid;grid-template-columns:repeat(10,8.6mm);
+  margin:0 auto 10mm;border-left:.6pt solid #1f2430;border-top:.6pt solid #1f2430}
+.sheet.cover .cv-grid i{display:block;height:8.6mm;line-height:8.6mm;font-style:normal;
+  font-size:8.4pt;color:#1f2430;font-variant-numeric:tabular-nums;
+  border-right:.6pt solid #1f2430;border-bottom:.6pt solid #1f2430}
+.sheet.cover .cv-l{display:inline-block;text-align:left;font-size:9pt;
+  color:#6b7280;line-height:2.2}
+.sheet.cover .cv-l b{color:#1F4E79;display:inline-block;width:18mm}
+.sheet.cover .cv-h{font-size:7.6pt;color:#a8a296;margin-top:12mm}
+.sheet.blank{min-height:20mm;justify-content:flex-end}
+@media screen{.sheet.blank{padding:4mm 8mm}}
+@media print{.sheet.cover{min-height:191mm;display:flex}.sheet.blank{min-height:20mm}}
+.hd .pg{font-size:8pt;color:#8a8577;white-space:nowrap}
 
 /* ── A4 **밑에** 붙는 자리 — 화면에서만 쓴다 ───────────────────────────
    SME 에게 보내는 PDF 는 **고치기 전**이라 메모가 비어 있다. 인쇄에 빈 칸을
@@ -429,13 +463,17 @@ JS = """
 
 def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
           audio_url: Callable[[int], str], only: int | None = None,
-          pics: bool = True) -> str:
+          pics: bool = True, pad: Dict[int, int] | None = None,
+          cover: bool = False) -> str:
     """덱 → 검수지 HTML. 그림·소리 주소는 부르는 쪽이 준다(서버/파일 둘 다).
 
     ★ `pics=False` 면 **그림 쪽을 통째로 뺀다.** 검수는 라벨 글귀와 발음을
       잡는 일이라 그림이 없어도 된다. 그림을 글자로 바꿔 넣으면(data URI)
       한 장이 8MB 가 되는데, 빼면 200KB 다 — 메일로 보낼 수 있는 크기다.
       그림이 필요하면 앱의 `/review/{pid}` 를 열면 된다.
+    ★ `cover` 는 1쪽 표지 + 양면 짝 맞추기(빈 면 끼우기). **PDF 만 켠다** — HTML 은
+      화면에서 메모하는 자리라 표지가 앞을 가릴 뿐이다(2026-09-22). `pad` 는 씬마다
+      더 끼울 빈 면 수로, PDF 첫 패스의 실제 장수를 보고 채워 다시 부른다.
     """
     cues = cue_map(deck)
     book = (deck.get("project") or {}).get("title") or ""
@@ -492,7 +530,7 @@ def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
                 f'<tbody>{pin_rows}</tbody></table>'
                 if lbs else '<div style="color:#b4ada0;font-size:8pt">라벨 없음</div>')
 
-        rows, nrisk = [], 0
+        rows, nrisk = [], 0                    # (html, 높이mm)
         for k, c in enumerate(cl):
             sub = c[2]
             try:
@@ -502,49 +540,149 @@ def build(deck: Dict[str, Any], *, img_url: Callable[[str], str],
             A, B = mark(sub, spk)
             risk = "hit" in A
             nrisk += 1 if risk else 0
-            rows.append(
+            rows.append((
                 f'<tr class="{"risk" if risk else ""}">'
                 f'<td class="c-t">{mmss(c[0])}</td>'
                 f'<td class="c-s">{A}</td>'
                 f'<td class="c-p">{B}</td>'
                 + memo("cue", k, f"{mmss(c[0])} 줄", f"{c[0]:.2f}")
-                + "</tr>")
+                + "</tr>", _row_mm(sub, spk)))
         if not rows:
-            rows.append('<tr><td class="c-t"></td><td class="c-s" colspan="3" '
-                        'style="color:#b4ada0">읽는 말이 없는 장입니다'
-                        '(표지·마무리).</td></tr>')
+            rows.append(('<tr><td class="c-t"></td><td class="c-s" colspan="3" '
+                         'style="color:#b4ada0">읽는 말이 없는 장입니다'
+                         '(표지·마무리).</td></tr>', 6.0))
 
         # 그림 쪽 — `pics=False` 면 아예 안 만든다
+        pgm = f'<span class="pgm">@@S{no}@@</span>'
         page1 = (f'''<section class="sheet pic">
   <div class="hd"><h2 class="ttl">{esc(s.get("title") or "")}</h2>
     <span class="bk">{esc(book)}</span>
     <span class="no">{i} / {total}</span></div>
   <div class="slide">{pic}<div class="st">{esc(s.get("title") or "")}</div>{lab}</div>
-  <div class="foot"><span>씬 {no} · 라벨 {len(lbs)}개</span>
+  <div class="foot"><span>씬 {no} · 라벨 {len(lbs)}개</span>{pgm}
     <span class="r">다음 장에 캡션과 대사가 있습니다</span></div>
 </section>''' if pics else "")
 
-        P.append(page1 + f"""<section class="sheet data">
-  <div class="hd"><h2 class="ttl">{esc(s.get("title") or "")}</h2>
+        # ★ 대사 쪽을 **파이썬이 미리 나눈다.** 브라우저에 넘치는 대로 맡기면
+        #   장수를 알 수 없어 양면 짝을 못 맞춘다. 줄 높이를 글자 수로 어림해
+        #   한 쪽 분량씩 끊는다 — 어림이라 여유(`_FILL`)를 둔다.
+        chunks = _paginate(rows, _caps_mm(lbs))
+        npg = len(chunks)
+        if pics:
+            P.append(page1)
+        for p, chunk in enumerate(chunks, 1):
+            pg = f'<span class="pg">대사 {p} / {npg}</span>' if npg > 1 else ""
+            body_caps = f'<div class="caps">{caps}</div>' if p == 1 else ""
+            P.append(f"""<section class="sheet data">
+  <div class="hd"><h2 class="ttl">{esc(s.get("title") or "")}</h2>{pg}
     <span class="bk">{esc(book)}</span>
     <span class="ed">메모 칸에만 적어 주세요</span>
     <span class="no">{i} / {total}</span></div>
-  <div class="caps">{caps}</div>
+  {body_caps}
   <table class="ct"><thead><tr>
     <th class="c-t">시각</th>
     <th class="c-s">자막 — 화면에 보이는 글</th>
     <th class="c-p">읽는 말 — 성우에게 넘어가는 글</th>
     <th class="memo">메모 — 고칠 것을 여기 적어 주세요</th>
-  </tr></thead><tbody>{''.join(rows)}</tbody></table>
-  <div class="foot"><span>씬 {no} · 갈린 줄 {nrisk}개</span>
+  </tr></thead><tbody>{''.join(h for h, _ in chunk)}</tbody></table>
+  <div class="foot"><span>씬 {no} · 갈린 줄 {nrisk}개</span>{pgm}
     <span class="r">검수: ______________   날짜: ____________</span></div>
-</section>
-<div class="below" data-s="{no}">
+</section>""")
+
+        # ★ 씬의 장수를 **짝수로** 맞춘다 — 다음 씬이 펼침의 첫 면(짝수 쪽)에서
+        #   시작해야 한다. `pad` 는 PDF 를 뽑은 뒤 실제 장수를 보고 더 끼우는 값.
+        n_pages = (1 if pics else 0) + npg + int((pad or {}).get(no, 0))
+        if cover and n_pages % 2:
+            P.append(_blank(no, pgm))
+
+        P.append(f"""<div class="below" data-s="{no}">
   <div class="bh"><b>씬 {no}</b> 검수 메모
     <span class="cnt" data-s="{no}">메모 없음</span>{audio}</div>
   <div class="diffs" data-s="{no}"></div>
 </div>""")
 
+    if cover and only is None:
+        P.insert(0, _cover(book, deck, total))
+
     return (f'<!doctype html><html lang="ko"><head><meta charset="UTF-8">'
             f'<title>{esc(book)} — 검수지</title><style>{CSS}</style></head>'
             f'<body>{"".join(P)}<script>{JS}</script></body></html>')
+
+
+# ── 장수 어림 ────────────────────────────────────────────────────────────
+# ★ 숫자는 CSS 의 값을 mm 로 옮긴 것이다. 글꼴 크기·열 너비를 바꾸면 여기도
+#   같이 손봐야 한다 — 어긋나면 PDF 는 두 번째 패스가 잡아 주지만(review_pdf.py)
+#   SME 가 브라우저에서 바로 인쇄할 때는 이 어림이 전부다.
+_PT = 0.3528                       # 1pt = 0.3528mm
+_PAGE = 191.0                      # A4 가로 210 − 여백 9×2 (sheet min-height)
+_HD, _FOOT = 11.0, 7.2             # 머리띠·발문 높이
+_CT_HEAD = 5.3                     # 대사표 머리 줄
+_FILL = 0.86                       # 어림 여유 — 줄바꿈이 셋쯤 더 생겨도 안 넘친다
+_COL_S = 0.34 * 277 - 2.8          # 자막·읽는 말 열 안쪽 너비(mm)
+_COL_B = 277 - 5 - 20 - 28 - 26 - 2  # 캡션 설명 열
+_COL_H = 20 - 2                    # 캡션 소제목 열
+
+
+def _lines(text: str, width_mm: float, pt: float) -> int:
+    """글자 폭 어림으로 줄 수를 센다 — 한글·한자 1em, 로마자·공백 .55em."""
+    n = 0
+    for part in (text or "").split("\n"):
+        w = sum(1.0 if ord(ch) > 0x2E7F else 0.55 for ch in part) * pt * _PT
+        n += max(1, -(-int(w * 100) // int(width_mm * 100)))
+    return n
+
+
+def _row_mm(sub: str, spk: str) -> float:
+    ln = max(_lines(sub, _COL_S, 8), _lines(spk, _COL_S, 8))
+    return ln * 8 * 1.45 * _PT + 2.2 + 0.15
+
+
+def _caps_mm(lbs: list) -> float:
+    if not lbs:
+        return 6.0 + 3.0
+    h = 4.7
+    for l in lbs:
+        ln = max(_lines(l.get("head") or "", _COL_H, 7.2),
+                 _lines(l.get("sub") or "", _COL_B, 7.2))
+        h += ln * 7.2 * 1.45 * _PT + 2.1
+    return h + 3.0
+
+
+def _paginate(rows: list, caps_mm: float) -> list:
+    """(html, mm) 줄들을 쪽 단위로 끊는다. 첫 쪽은 캡션 표만큼 좁다."""
+    budget = (_PAGE - _HD - _FOOT) * _FILL
+    pages, cur, used = [], [], caps_mm + _CT_HEAD
+    for r in rows:
+        if cur and used + r[1] > budget:
+            pages.append(cur)
+            cur, used = [], _CT_HEAD
+        cur.append(r)
+        used += r[1]
+    pages.append(cur)
+    return pages
+
+
+def _blank(no: int, pgm: str) -> str:
+    return (f'<section class="sheet blank"><div class="foot">'
+            f'<span>씬 {no} · 빈 면 — 양면 인쇄에서 다음 씬이 펼침 위쪽에 오도록 '
+            f'비워 두었습니다</span>{pgm}</div></section>')
+
+
+def _cover(book: str, deck: Dict[str, Any], total: int) -> str:
+    """1쪽 — 제목과 씬 번호 체크판. 양면 인쇄에서 씬이 2쪽부터 시작하게 하는 자리다."""
+    from datetime import date
+
+    sub = deck.get("deck_subtitle") or ""
+    return (f'<section class="sheet cover">'
+            f'<div class="cv-k">검수지</div>'
+            f'<h1 class="cv-t">{esc(book.replace("_", " "))}</h1>'
+            + (f'<p class="cv-s" style="margin-bottom:2mm">{esc(sub)}</p>' if sub else "")
+            + f'<p class="cv-s">씬 {total}개 · 씬마다 두 쪽 — 위 그림, 아래 캡션과 대사'
+            f' · {date.today().isoformat()}</p>'
+            f'<div class="cv-grid">{"".join(f"<i>{k}</i>" for k in range(1, total + 1))}</div>'
+            f'<div class="cv-l"><div><b>검수</b> ______________________</div>'
+            f'<div><b>날짜</b> ______________________</div></div>'
+            f'<div class="cv-h">양면 · 위로 넘기는 제본(상철)으로 인쇄하면 한 씬이 펼친 면에 '
+            f'같이 옵니다. 본 씬은 위 칸에 표시하고, 고칠 것은 각 쪽의 메모 칸에만 적어 주세요.'
+            f'<span class="pgm">@@S0@@</span></div>'
+            f'</section>')

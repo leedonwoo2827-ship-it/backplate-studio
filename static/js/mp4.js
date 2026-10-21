@@ -134,10 +134,23 @@ export async function mount(root, ctx) {
   rev.href = `/review/${state.projectId}`;
   rev.target = "_blank";
   rev.rel = "noopener";
-  rev.title = "씬마다 A4 한 장 — 슬라이드·캡션·자막·발음."
-            + " 고칠 수 있고, 바뀐 것만 따로 저장됩니다";
-  rev.append(icon("printer", 14), el("span", null, "검수지"));
+  rev.title = "씬마다 A4 두 장 — 그림 / 캡션·자막·발음. 메모 칸에 적고 검수내역을"
+            + " 저장·내려받을 수 있습니다";
+  rev.append(icon("printer", 14), el("span", null, "검수지 HTML"));
   bar.appendChild(rev);
+
+  /* ★ PDF 는 **양면 인쇄용**이다(2026-09-22). 1쪽 표지, 씬은 짝수 쪽에서 시작 —
+       위로 넘기는 상철 제본에서 그림(위)과 대사(아래)가 한 펼침에 온다.
+       HTML 을 브라우저에서 인쇄하면 씬이 석 장일 때 짝이 밀리는데, PDF 는
+       서버가 크롬으로 두 번 찍어 장수를 맞춘다. 첫 클릭은 30초쯤 걸린다. */
+  const pdf = el("a", "btn");
+  pdf.href = `/review/${state.projectId}.pdf`;
+  pdf.target = "_blank";
+  pdf.rel = "noopener";
+  pdf.title = "양면(상철) 인쇄용 PDF — 표지 1쪽, 씬마다 그림·대사가 한 펼침."
+            + " 만드는 데 30초쯤 걸립니다";
+  pdf.append(icon("printer", 14), el("span", null, "검수지 PDF"));
+  bar.appendChild(pdf);
 
   const note = el("span", "rec-note", "");
   bar.appendChild(note);
