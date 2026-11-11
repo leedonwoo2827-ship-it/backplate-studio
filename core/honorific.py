@@ -208,9 +208,42 @@ def _keys(m: "re.Match") -> str:
     return said + (with_j if jong else without_j)
 
 
+# 수식 기호 — TTS 는 기호를 소리 내지 않는다. 「같지 않음을 뜻하는 <>로」가
+# 「같지 않음을 뜻하는 로」로 들렸다(2026-11-11). 저자가 1과목에서 손으로 고친
+# 읽기를 따른다: `~이면서` → 「무엇무엇이면서」, `<>` → 「작다 크다」.
+_OPND = r"[A-Za-z0-9)$\"]"
+_OPS = [
+    (re.compile(r"<>"), " 작다 크다 "),
+    (re.compile(r"<="), " 작다 같다 "),
+    (re.compile(r">="), " 크다 같다 "),
+    (re.compile(r"<"), " 작다 "),
+    (re.compile(r">"), " 크다 "),
+    (re.compile(r"(?:(?<=^)|(?<=[\s'\"(]))=(?=[A-Za-z0-9$가-힣(])"), "이퀄 "),
+    (re.compile(r"(?<=[A-Za-z0-9)\"])\s*=\s*(?=[A-Za-z0-9$\"(])"), " 이퀄 "),
+    (re.compile(rf"(?<={_OPND})\s*&\s*|\s*&\s*(?={_OPND})"), " 앰퍼샌드 "),
+    (re.compile(rf"(?<={_OPND})\*(?=[A-Za-z0-9($])"), " 곱하기 "),
+    (re.compile(rf"(?<={_OPND})/(?=[A-Za-z0-9($])"), " 나누기 "),
+    (re.compile(rf"(?<={_OPND})\+(?=[A-Za-z0-9($])"), " 더하기 "),
+    (re.compile(r"(?<=[A-Z]\d)-(?=[A-Za-z0-9($])|(?<=[0-9)])-(?=\$?[A-Z]{1,3}\$?\d)"), " 빼기 "),
+]
+_TILDE_RANGE = re.compile(r"(\d)\s*~\s*(?=\d)")
+_TILDE_WORD = re.compile(r"~(로|가)(?![가-힣])|~(?=[가-힣])()")
+
+
+def _tilde_word(m: "re.Match") -> str:
+    j = m.group(1) or m.group(2) or ""
+    return "무엇무엇" + {"로": "으로", "가": "이"}.get(j, "")
+
+
 def speak_excel(text: str) -> str:
     """엑셀 표기만 먼저 소리로. 나머지 숫자는 `speak_numbers` 가 이어서 한다."""
     text = _KEY_RE.sub(_keys, text)
+    text = _TILDE_RANGE.sub(r"\1에서 ", text)
+    text = _TILDE_WORD.sub(_tilde_word, text)
+    for rx, said in _OPS:
+        text = rx.sub(said, text)
+    text = re.sub(r"\s*&\s*", " 앰퍼샌드", text)      # 혼자 쓰인 & — `&로 잇는다`
+    text = re.sub(r"[ \t]{2,}", " ", text)
     def rng(m: "re.Match") -> str:
         a, b, j = m.group(1), m.group(2), m.group(3)
         return (f"{_CELL_RE.sub(_cell, a)}에서 {_CELL_RE.sub(_cell, b)}까지"

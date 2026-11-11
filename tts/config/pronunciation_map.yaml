@@ -11,6 +11,59 @@
 #   - 새 항목 추가 후엔 즉시 반영 (서버 재시작 불필요)
 
 rules:
+  # ── 엑셀 함수·표시 형식 코드 (2026-11-11, 엑셀 교재) ──
+  IF: 이프
+  IFS: 이프스
+  IFERROR: 이프에러
+  CHOOSE: 추즈
+  SMALL: 스몰
+  LARGE: 라지
+  AVERAGE: 애버리지
+  AVERAGEIFS: 애버리지이프스
+  INT: 인트
+  TRUNC: 트렁크
+  VLOOKUP: 브이룩업
+  HLOOKUP: 에이치룩업
+  MATCH: 매치
+  ROUND: 라운드
+  ROUNDUP: 라운드업
+  ROUNDDOWN: 라운드다운
+  DSUM: 디썸
+  DAVERAGE: 디애버리지
+  DCOUNT: 디카운트
+  DMAX: 디맥스
+  DMIN: 디민
+  WEEKDAY: 위크데이
+  MID: 미드
+  RIGHT: 라이트
+  PROPER: 프로퍼
+  UPPER: 어퍼
+  LOWER: 로어
+  HOUR: 아워
+  MINUTE: 미닛
+  SECOND: 세컨드
+  DAY: 데이
+  RANK.EQ: 랭크 이큐
+  COUNTIF: 카운트이프
+  COUNTIFS: 카운트이프스
+  SUMIFS: 썸이프스
+  SUMIF: 썸이프
+  COUNTBLANK: 카운트블랭크
+  COUNTA: 카운트에이
+  MEDIAN: 미디언
+  Enter: 엔터
+  Alt: 알트
+  Delete: 딜리트
+  pt: 포인트
+  Chart: 차트
+  Sat: 에스에이티
+  Fri: 에프알아이
+  yyyy: 와이와이와이와이
+  yy: 와이와이
+  mm: 엠엠
+  dd: 디디
+  aaa: 에이에이에이
+  ddd: 디디디
   10세기: 십 세기
   11세기: 십일 세기
   12세기: 십이 세기
