@@ -169,8 +169,48 @@ def _digits_or_num(g: str) -> str:
     return sino(int(g))
 
 
+# 단축키 — `Ctrl+1` 은 「컨트롤 원」(저자 결정 2026-11-11). 키 조합 안의 숫자는
+# 영어로 읽는다 — 「컨트롤 일」이라고 말하는 강의는 없다.
+_KEY = {"Ctrl": "컨트롤", "Shift": "시프트", "Alt": "알트", "Enter": "엔터",
+        "Delete": "딜리트", "Del": "델", "Tab": "탭", "Esc": "이에스씨",
+        "Home": "홈", "End": "엔드", "Space": "스페이스", "Win": "윈도"}
+_EN_DIGIT = ["제로", "원", "투", "쓰리", "포", "파이브", "식스", "세븐", "에잇", "나인"]
+_KEYNAME = "|".join(sorted(_KEY, key=len, reverse=True))
+_KEY_RE = re.compile(
+    rf"(?<![A-Za-z])((?:{_KEYNAME})(?:\s*\+\s*(?:{_KEYNAME}|F\d{{1,2}}|[A-Z0-9]))*)"
+    r"(?![A-Za-z0-9])"
+    r"(\s?(?:으로|로|을|를|은|는|과|와|가|이(?=[\s,.])))?")
+_JOSA_PAIR = {"으로": ("으로", "로"), "로": ("으로", "로"), "을": ("을", "를"),
+              "를": ("을", "를"), "은": ("은", "는"), "는": ("은", "는"),
+              "과": ("과", "와"), "와": ("과", "와"), "이": ("이", "가"),
+              "가": ("이", "가")}
+
+
+def _key_one(k: str) -> str:
+    if k in _KEY:
+        return _KEY[k]
+    if k.isdigit():
+        return _EN_DIGIT[int(k)]
+    if k.startswith("F") and k[1:].isdigit():
+        return "에프" + "".join(_EN_DIGIT[int(c)] for c in k[1:])
+    return _LETTER.get(k, k)
+
+
+def _keys(m: "re.Match") -> str:
+    said = " ".join(_key_one(k.strip()) for k in m.group(1).split("+"))
+    j = (m.group(2) or "").strip()
+    if not j:
+        return said
+    jong = _jong(said[-1])
+    with_j, without_j = _JOSA_PAIR[j]
+    if j in ("으로", "로"):
+        return said + ("로" if jong in (0, 8) else "으로")   # ㄹ 받침은 「로」
+    return said + (with_j if jong else without_j)
+
+
 def speak_excel(text: str) -> str:
     """엑셀 표기만 먼저 소리로. 나머지 숫자는 `speak_numbers` 가 이어서 한다."""
+    text = _KEY_RE.sub(_keys, text)
     def rng(m: "re.Match") -> str:
         a, b, j = m.group(1), m.group(2), m.group(3)
         return (f"{_CELL_RE.sub(_cell, a)}에서 {_CELL_RE.sub(_cell, b)}까지"
