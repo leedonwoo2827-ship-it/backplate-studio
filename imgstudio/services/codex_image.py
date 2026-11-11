@@ -314,8 +314,10 @@ def _build_payload(prompt: str, size: str, output_format: str, model: str,
         "tool_choice": tool_choice,
         "parallel_tool_calls": False,
         "store": False,
-        "reasoning": {"effort": "low", "summary": "auto"},
-        "include": ["reasoning.encrypted_content"],
+        # ★ reasoning 블록을 넣지 않는다. gpt-6-astra 는 effort 를 이미지 툴의
+        #   complexity 로 넘기고, 그 값을 거절한다(2026-11-11 실측:
+        #   "Complexity 'low' is not supported for this image model" — low·medium
+        #   모두 거절, 블록을 빼면 정상 생성).
         "text": {"verbosity": "low"},
     }
 
