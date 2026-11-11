@@ -130,6 +130,63 @@ def _josa_next(s: str) -> bool:
     return any(s.startswith(j) for j in _JOSA_HEADS)
 
 
+# ── 엑셀 표기 — 셀 주소·범위·절대참조·날짜·음수 ──────────────────────────────
+# ★ 엑셀 교재(2026-11-11)에서 드러났다. 일반 숫자 규칙만으로는
+#     2026-05-02 → 「이천이십육 -오 -이」   하이픈·앞자리 0 이 사라진다
+#     A4:A7      → 「A사 :A칠」            콜론을 안 읽는다
+#     $D$4       → 「$D$사」               $ 를 안 읽는다
+#     -2는       → 「-이는」               마이너스가 사라진다
+#   읽는 법은 저자가 정했다: 범위는 「에이사에서 에이칠까지」, $ 는 「달러」,
+#   날짜는 기호를 살려 「이천이십육 하이픈 영오 하이픈 영이」.
+_LETTER = {"A": "에이", "B": "비", "C": "씨", "D": "디", "E": "이", "F": "에프",
+           "G": "지", "H": "에이치", "I": "아이", "J": "제이", "K": "케이",
+           "L": "엘", "M": "엠", "N": "엔", "O": "오", "P": "피", "Q": "큐",
+           "R": "알", "S": "에스", "T": "티", "U": "유", "V": "브이",
+           "W": "더블유", "X": "엑스", "Y": "와이", "Z": "제트"}
+
+_CELL = r"\$?[A-Z]{1,3}\$?\d+"
+_CELL_RE = re.compile(r"(?<![A-Za-z0-9$])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![A-Za-z0-9])")
+_RANGE_RE = re.compile(rf"(?<![A-Za-z0-9$])({_CELL}):({_CELL})(?![A-Za-z0-9])"
+                       r"(으로|로|을|를|은|는|과|와|이(?=[\s,.]|$)|가)?")
+_DATE_RE = re.compile(r"(?<!\d)(\d{4})([-.])(\d{1,2})\2(\d{1,2})(?![\d.])")
+_NEG_RE = re.compile(r"(?<![\w)\]])-(?=\d)")
+# 범위 뒤 조사는 「까지」(받침 없음)에 맞춘다 — `A4:G16을` 이 「…까지을」이 되지 않게.
+_AFTER_KKAJI = {"으로": "로", "로": "로", "을": "를", "를": "를", "은": "는",
+                "는": "는", "과": "와", "와": "와", "이": "가", "가": "가"}
+
+
+def _cell(m: "re.Match") -> str:
+    d1, col, d2, row = m.groups()
+    out = ("달러 " if d1 else "") + "".join(_LETTER[c] for c in col)
+    out += (" 달러 " if d2 else "") + sino(int(row))
+    return out
+
+
+def _digits_or_num(g: str) -> str:
+    """날짜 덩이 — 앞자리가 0 이면 자리마다(`05`→「영오」), 아니면 수로(`10`→「십」)."""
+    if len(g) > 1 and g[0] == "0":
+        return "".join(_SINO_D[int(c)] for c in g)
+    return sino(int(g))
+
+
+def speak_excel(text: str) -> str:
+    """엑셀 표기만 먼저 소리로. 나머지 숫자는 `speak_numbers` 가 이어서 한다."""
+    def rng(m: "re.Match") -> str:
+        a, b, j = m.group(1), m.group(2), m.group(3)
+        return (f"{_CELL_RE.sub(_cell, a)}에서 {_CELL_RE.sub(_cell, b)}까지"
+                + (_AFTER_KKAJI[j] if j else ""))
+
+    def date(m: "re.Match") -> str:
+        y, sep, mo, d = m.groups()
+        word = " 하이픈 " if sep == "-" else " 점 "
+        return sino(int(y)) + word + _digits_or_num(mo) + word + _digits_or_num(d)
+
+    t = _RANGE_RE.sub(rng, text)
+    t = _CELL_RE.sub(_cell, t)
+    t = _DATE_RE.sub(date, t)
+    return _NEG_RE.sub("마이너스 ", t)
+
+
 def speak_numbers(text: str) -> str:
     """글 속의 **아라비아 숫자를 소리대로** 바꾼다. 발음 대본 전용.
 
@@ -188,7 +245,8 @@ def speak_numbers(text: str) -> str:
                and not _josa_next(tail))
         return said + (" " if gap else "")
 
-    out = _NUM_RE.sub(one, text or "")
+    text = speak_excel(text or "")
+    out = _NUM_RE.sub(one, text)
     # ★ 기호도 말로 바꾼다. `250%` 는 숫자만 풀면 「이백오십%」로 남는데, TTS 가
     #   `%` 를 읽어 주지 않는다(2026-08-17 · 20장에서 그대로 나갔다).
     #   앞 공백을 같이 먹어서 「오십  퍼센트」로 두 칸이 되지 않게 한다.
