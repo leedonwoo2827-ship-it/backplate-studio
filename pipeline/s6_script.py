@@ -55,7 +55,10 @@ BASE_SEC = {
     "cover": 8, "context": 14, "feature": 16, "architecture": 18,
     "decision": 20, "metric": 14, "ops": 14, "note": 12, "closing": 10,
 }
-MD = re.compile(r"[*_`#>\[\]]|^\s*[-•]\s+", re.M)
+# ★ 기호를 **글 가운데서는** 지우지 않는다. 엑셀 교재(2026-11-11)에서
+#   `#,##0` 이 `,0` 으로, `=D5*E5` 가 `=D5E5` 로, `<>` 가 `<` 로 자막에 나갔다.
+#   지우는 것은 강조(`**`·`__`)·백틱·대괄호, 줄 머리의 제목·인용·글머리표뿐이다.
+MD = re.compile(r"\*\*|__|`|[\[\]]|^\s*#{1,6}\s+|^\s*>\s?|^\s*[-•]\s+", re.M)
 
 
 def est_sec(text: str, cps: float) -> float:
