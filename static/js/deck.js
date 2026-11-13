@@ -27,6 +27,7 @@ import { runSteps } from "./runner.js";
 import { stepBadge, DECK } from "./steps.js";
 import { storyboard } from "./storyboard.js";
 import { panel as dictPanel } from "./dict.js";
+import { reviewPanel } from "./review.js";
 
 /* ★ 손편집의 키는 **원래 번호(src_no)** 다.
  *
@@ -271,7 +272,10 @@ function bgmButton() {
 
 /* 순서가 곧 규칙이다 — ① 대본을 만들고 ② 그 대본으로 굽는다. */
 const SCRIPT = ["s6-script"];
-const BAKE = ["s10-tts", "s11-audio", "s8-assemble", "s9-render"];
+/* ★ 맨 앞이 **AI 발음 교정**(s6p)이다 — 음성을 굽기 전에 발음 대본 전체를 소리대로
+ * 고친다. 이미 고친 장은 캐시에서 나오므로 두 번째부터는 Claude 를 안 부른다(대개 $0).
+ * 손으로 고친 장은 보내지도 않는다. */
+const BAKE = ["s6p-pron-ai", "s10-tts", "s11-audio", "s8-assemble", "s9-render"];
 /* ★ **음성을 뺀 굽기.** 장별로 「발음대로 다시 합성」을 눌러 소리를 이미 다
  * 만들어 둔 뒤에 쓴다 — 그때 필요한 것은 자막 시각을 다시 잡고 다시 조립하는
  * 것뿐이다(`synth_one` 이 s10 캐시의 그 칸을 이미 고쳐 놨다).
@@ -281,7 +285,7 @@ const BAKE = ["s10-tts", "s11-audio", "s8-assemble", "s9-render"];
 const RESUB = ["s11-audio", "s8-assemble", "s9-render"];
 /* 7번(영상)은 이 화면에 없다 — `/mp4` 가 맡는다(S12). */
 const BAKE_KO = {
-  "s6-script": "발음대본", "s10-tts": "음성 합성", "s11-audio": "자막",
+  "s6-script": "발음대본", "s6p-pron-ai": "AI 발음 교정", "s10-tts": "음성 합성", "s11-audio": "자막",
   "s8-assemble": "조립", "s9-render": "파일 빌드", "s12-video": "영상 렌더",
 };
 
@@ -478,6 +482,24 @@ const KIND_LABEL = {
 const LANE_COLORS = ["#9a4d33", "#c0714f", "#7d6a55", "#5c6b62", "#8a7f9a", "#a8894f"];
 const fmt = (s) => (s == null ? "—" : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`);
 
+/** 낱말 단위 비교 — 빠진 말은 줄을 긋고, 들어온 말은 빨갛게(해설북 `diffRed` 와 같다) */
+function diffWords(a, b) {
+  const esc = (t) => t.replace(/[&<>]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;"}[c]));
+  const x = a.split(/\s+/), y = b.split(/\s+/);
+  const L = Array.from({length: x.length + 1}, () => new Array(y.length + 1).fill(0));
+  for (let i = x.length - 1; i >= 0; i--)
+    for (let j = y.length - 1; j >= 0; j--)
+      L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < x.length || j < y.length) {
+    if (i < x.length && j < y.length && x[i] === y[j]) { out.push(esc(x[i])); i++; j++; }
+    else if (j < y.length && (i >= x.length || L[i][j + 1] >= L[i + 1][j])) { out.push(`<ins>${esc(y[j])}</ins>`); j++; }
+    else { out.push(`<del>${esc(x[i])}</del>`); i++; }
+  }
+  return out.join(" ");
+}
+
 /** 내용만큼 늘어나는 입력칸 — 스크롤바가 생기면 전체가 안 보인다 */
 function autoSize(t) {
   t.style.height = "auto";
@@ -611,7 +633,43 @@ export async function mount(root, ctx) {
     numChips[s.no] = c;
   }
   hd.appendChild(strip);
+
+  /* ★ 영상 보며 검수 — 번호 탭 바로 밑. 표를 누르면 아래 편집기가 그 장으로 바뀌고
+   * 영상은 그대로 남는다(`review.js`). 접어 두면 한 줄만 차지한다. */
+  const rvHost = el("div", "rv-host");
+  const rvBtn = el("button", "btn sm");
+  rvBtn.type = "button";
+  const rvLab = el("span", null, "영상 보며 검수");
+  rvBtn.append(icon("film", 13), rvLab);
+  rvBtn.title = `완성 영상을 보다가 이상한 곳에서 M — 그 장·문장이 검수표에 쌓입니다
+표를 누르면 그 장의 발음 칸으로 갑니다
+다른 PC 에서 들은 검수표(json)도 여기서 불러옵니다`;
+  let rv = null;
+  rvBtn.onclick = () => {
+    if (rv) { rv.destroy(); rv = null; rvLab.textContent = "영상 보며 검수"; return; }
+    rv = reviewPanel(gotoPron);
+    rvHost.appendChild(rv.el);
+    rvLab.textContent = "검수 닫기";
+  };
+  page.addEventListener("x-unmount", () => { if (rv) rv.destroy(); });
+  const rvRow = el("div", "rv-toggle");
+  rvRow.appendChild(rvBtn);
+  hd.appendChild(rvRow);
   page.appendChild(hd);
+  page.appendChild(rvHost);
+
+  /* 검수표에서 장을 누르면 — 그 장을 열고 **발음 칸**에 커서를 둔다 */
+  function gotoPron(no) {
+    if (!byNo[no]) { toast(`${no}장이 덱에 없습니다(뺀 장일 수 있습니다)`, "err"); return; }
+    show(no);
+    const ta = body.querySelector(".dc-pron");
+    if (!ta) return;
+    ta.scrollIntoView({behavior: "smooth", block: "center"});
+    ta.classList.remove("flash");
+    void ta.offsetWidth;          // 같은 장을 다시 눌러도 깜빡이게
+    ta.classList.add("flash");
+    ta.focus({preventScroll: true});
+  }
 
   /* 승인 게이트 3단 — 어디까지 봤는지를 슬라이드마다 남긴다.
    *
@@ -1136,6 +1194,66 @@ export async function mount(root, ctx) {
     };
     g2.appendChild(rb);
 
+    /* ★ AI 발음 교정 — **이 장만.** 전체 교정은 «음성/자막 굽기» 맨 앞에서 한 번 돈다
+       (s6p). 이 버튼은 그 뒤에 쓴다 — 사전에 낱말을 더했거나, 영상 검수에서 이상한
+       장을 찾았을 때. 바로 덮지 않고 **바뀌는 낱말을 보여 준 뒤** 사람이 적용한다.
+       한 번에 약 $0.2~0.3 이 든다. */
+    const ai = el("button", "btn sm");
+    ai.type = "button";
+    const aiLab = el("span", null, "AI 발음 교정");
+    ai.append(icon("wand", 12), aiLab);
+    ai.title = `지금 발음 칸을 Claude 가 소리대로 고쳐 제안합니다
+VLOOKUP → 브이룩업 · #N/A → 샵 엔에이 · 101101(2진수) → 일공일일공일
+바로 덮지 않습니다 — 바뀌는 곳을 보고 «적용 + 합성»`;
+    const sug = el("div", "dc-sug");
+    sug.hidden = true;
+    ai.onclick = async () => {
+      const before = pron.value.trim();
+      if (!before) { toast("발음 칸이 비어 있습니다"); return; }
+      ai.disabled = true;
+      aiLab.textContent = "묻는 중…";
+      try {
+        const r = await api(`/api/projects/${state.projectId}/pron-ai/${s.no}`,
+                            {method: "POST", body: {text: before}});
+        sug.textContent = "";
+        if (!r.suggest || r.suggest === before) {
+          sug.hidden = true;
+          toast(r.failed ? "AI 가 다 고치지 못했습니다 — 손으로 고쳐 주세요"
+                         : "고칠 것이 없습니다");
+          return;
+        }
+        const diff = el("div", "dc-sug-diff");
+        diff.innerHTML = diffWords(before, r.suggest);
+        const skip = el("button", "btn sm ghost", "무시");
+        skip.type = "button";
+        skip.onclick = () => { sug.hidden = true; };
+        const ok = el("button", "btn sm primary", "적용 + 합성");
+        ok.type = "button";
+        ok.onclick = async () => {
+          pron.value = r.suggest;
+          edit(okey(s), ["narration", "text"], pron.value);
+          sug.hidden = true;
+          try {
+            // ★ 저장을 기다린 뒤 합성한다 — 손편집 저장은 0.6초 뒤라, 바로 합성하면 옛 글을 읽는다
+            await api(`/api/projects/${state.projectId}/overrides`, {method: "POST",
+              body: {patch: {slides: {[okey(s)]: {narration: {text: pron.value}}}}}});
+          } catch (e) { toast("저장 실패: " + e.message, "err"); return; }
+          const rvb = wrap.querySelector(".dc-revoice");
+          if (rvb) rvb.click();
+        };
+        const row = el("div", "dc-sug-bar");
+        row.append(skip, ok, el("span", "dc-meta", `$${(r.cost_usd || 0).toFixed(2)}`));
+        sug.append(diff, row);
+        sug.hidden = false;
+      } catch (e) {
+        toast("묻지 못했습니다: " + e.message, "err");
+      } finally {
+        aiLab.textContent = "AI 발음 교정";
+        ai.disabled = false;
+      }
+    };
+    g2.append(ai, sug);
+
     grid.appendChild(g2);
     wrap.appendChild(grid);
 
@@ -1209,7 +1327,7 @@ export async function mount(root, ctx) {
 
     // 대본이 있으면 — 음성이 아직 없어도 — 다시 만들 수 있어야 한다
     if (s.narration && (s.narration.text || s.narration.srt_text)) {
-      const rv = el("button", "btn sm");
+      const rv = el("button", "btn sm dc-revoice");
       rv.type = "button";
       const rl = el("span", null, has ? "발음대로 다시 합성" : "이 장 합성");
       rv.append(icon("refresh", 12), rl);

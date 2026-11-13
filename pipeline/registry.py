@@ -84,13 +84,15 @@ def narration_of(pid: int, slug: str) -> Dict[str, Dict[str, Any]]:
     `text`(발음)가 비면 자막을 그대로 읽는다.
     """
     script = (cached_data(pid, slug, "s6-script") or {}).get("slides", {})
+    ai = pron_ai_of(pid, slug, script)
     ov = ws.load_overrides(pid, slug).get("slides", {})
     out: Dict[str, Dict[str, Any]] = {}
     for key in set(script) | set(ov):
         sc = script.get(key) or {}
         one = {
             "srt_text": (sc.get("srt_text") or "").strip(),
-            "text": (sc.get("narration_text") or "").strip(),
+            # s6 → AI 발음 교정(s6p) → 손편집. 라벨(원장 → s3d → 손편집)과 같은 겹이다
+            "text": ai.get(key) or (sc.get("narration_text") or "").strip(),
             "est_sec": sc.get("narration_seconds") or 0,
             "over_sec": sc.get("over_sec") or 0,
         }
@@ -99,6 +101,23 @@ def narration_of(pid: int, slug: str) -> Dict[str, Dict[str, Any]]:
             if k in hand:                      # 빈 문자열도 뜻이 있다 — 지운 것이다
                 one[k] = (hand.get(k) or "").strip()
         out[key] = one
+    return out
+
+
+def pron_ai_of(pid: int, slug: str, script: Dict[str, Any]) -> Dict[str, str]:
+    """AI 발음 교정(s6p) 가운데 **지금 쓸 수 있는 것** — 장 번호(문자열) → 발음.
+
+    ★ 고칠 때의 s6 발음(`src`)이 지금 s6 발음과 같을 때만 쓴다. 원고가 바뀐 장에
+      옛 교정을 씌우면 **다른 문장을 읽는다.**
+    ★ 여기 둔다 — 덱 화면(server)·조립(s8)·음성(s10)·자막(s11)이 모두 이 한 곳을
+      거쳐야 같은 발음을 본다.
+    """
+    got = ((read_cache(pid, slug, "s6p-pron-ai") or {}).get("data") or {}).get("slides") or {}
+    out: Dict[str, str] = {}
+    for k, v in got.items():
+        sc = script.get(k) or {}
+        if v.get("text") and v.get("src") == (sc.get("narration_text") or "").strip():
+            out[k] = v["text"]
     return out
 
 
@@ -203,6 +222,13 @@ _DEFS: List[Stage] = [
     Stage("s6-script", "내레이션 대본", "script", "claude",
           deps=["s2b-outline", "s5-decisions"], prompt="script.md",
           reads=["items", "narration", "language", "models"], code_version=2),
+    # ★ **AI 발음 교정.** 음성을 굽기 전에 발음 대본 전체를 Claude 가 소리대로
+    #   고친다(`pipeline/s6p_pron_ai.py`). 결과는 이 캐시에만 두고, 읽는 쪽이
+    #   s6 → 이것 → 손편집 순서로 얹는다(`pron_ai_of`). 손으로 고친 장은 안 보낸다.
+    #   s10·s11 의 deps 로 걸지 않는다 — 안 돌린 프로젝트의 합성이 막히면 안 된다
+    #   (s3d 와 같은 이유). 결과가 바뀌면 이 단계가 `narration_rev` 를 올린다.
+    Stage("s6p-pron-ai", "AI 발음 교정", "script", "claude",
+          deps=["s6-script"], prompt="pron_fix.md", reads=["models"], code_version=1),
     # ★ 그림 지시문과 그림 받기를 **가른다.** 지시문 쓰기는 Claude 를 부르고
     #   (돈이 든다 · 자동 실행하면 안 된다), 받기는 결정론이라 낡으면 저절로
     #   돈다. 한 단계에 묶으면 그림 한 장 넣을 때마다 지시문을 다시 사게 된다.

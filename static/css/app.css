@@ -2580,3 +2580,44 @@ label.check input { width: auto; }
 
 /* 판 고르기 — 「이미지 JSON 만들기」 옆. 누르기 전에 눈에 들어와야 한다. */
 .sel-fit{padding:5px 8px;max-width:210px;font-size:12px;cursor:pointer}
+
+/* 영상 보며 검수 — 덱 화면 번호 탭 밑(`review.js`). 왼쪽 영상, 오른쪽 검수표. */
+.rv-toggle{display:flex;justify-content:flex-end;margin-top:8px}
+.rv{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:14px;margin:10px 0 16px;
+  padding:12px;background:var(--bone);border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--hairline)}
+@media (max-width:1000px){.rv{grid-template-columns:1fr}}
+.rv-video{width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--r-sm)}
+.rv-now{margin-top:8px;padding:7px 10px;background:var(--white);border-radius:var(--r-sm);
+  box-shadow:inset 0 0 0 1px var(--hairline);min-height:38px;font-size:var(--t-base)}
+.rv-now b,.rv-tx b{color:var(--brand);margin-right:6px}
+.rv-keys{margin-top:6px;color:var(--text-2);font-size:var(--t-xs)}
+.rv-keys kbd{padding:0 5px;border-radius:4px;background:var(--white);box-shadow:inset 0 0 0 1px var(--hairline);font:inherit}
+.rv-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.rv-cnt{margin-right:auto;font-size:var(--t-md)}
+.rv-chips{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.rv-chips:empty{display:none}
+.rv-chips-lb{font-size:var(--t-xs);color:var(--text-2);margin-right:4px}
+.rv-list{list-style:none;margin:0;padding:0;max-height:52vh;overflow:auto}
+.rv-row{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;padding:6px 2px;
+  box-shadow:inset 0 1px 0 var(--hairline-2);font-size:var(--t-sm)}
+.rv-row.flash{animation:rvf 1.2s}
+@keyframes rvf{from{background:var(--warn-wash)}to{background:transparent}}
+.rv-t{color:var(--sky-500);cursor:pointer;text-decoration:underline;font-variant-numeric:tabular-nums}
+.rv-tx{cursor:pointer;color:var(--text)}
+.rv-tx:hover{color:var(--brand)}
+.rv-x{border:0;background:none;color:var(--text-3);cursor:pointer;padding:0 4px}
+.rv-memo{grid-column:2/4;color:var(--warn);font-size:var(--t-xs)}
+.rv-empty,.rv-none{color:var(--text-2);font-size:var(--t-sm);padding:8px 2px}
+.rv-stale{margin-top:6px;color:var(--warn);font-size:var(--t-xs)}
+.dc-pron.flash{animation:rvf 1.4s}
+
+/* AI 발음 교정 제안 — 빠진 말은 줄, 들어온 말은 빨강 */
+.dc-sug{margin-top:6px;padding:8px 10px;background:var(--warn-wash);border-radius:var(--r-sm);
+  box-shadow:inset 0 0 0 1px var(--hairline)}
+.dc-sug-diff{line-height:1.7;font-size:var(--t-base)}
+.dc-sug-diff del{color:var(--text-3)}
+.dc-sug-diff ins{text-decoration:none;color:var(--err);font-weight:700;background:var(--err-wash);border-radius:3px;padding:0 2px}
+.dc-sug-bar{display:flex;gap:6px;align-items:center;margin-top:6px}
+.rv-inbox{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;
+  padding:7px 10px;background:var(--ok-wash);color:var(--ok);border-radius:var(--r-sm);font-size:var(--t-sm);font-weight:600}
+.rv-inbox[hidden]{display:none}

@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from core import config, htmldoc, workspace as ws
-from pipeline.registry import ORDER, STAGES, cached_data, read_cache, write_cache
+from pipeline.registry import ORDER, STAGES, cached_data, pron_ai_of, read_cache, write_cache
 from pipeline.s3a_imgprompt import labels_of
 from pipeline.s3d_label_fit import merge_auto
 
@@ -74,6 +74,7 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
     dec = (cached_data(pid, slug, "s5-decisions") or {}).get("slides", {})
     copy = (cached_data(pid, slug, "s7-copy") or {}).get("slides", {})
     script = (cached_data(pid, slug, "s6-script") or {}).get("slides", {})
+    ai = pron_ai_of(pid, slug, script)   # AI 발음 교정 — 손편집은 아래에서 그 위에 얹힌다
     audio = (cached_data(pid, slug, "s10-tts") or {}).get("slides", {})
     tl = (cached_data(pid, slug, "s11-audio") or {}).get("slides", {})
     frames = (cached_data(pid, slug, "s1-frames") or {}).get("items", {})
@@ -139,7 +140,7 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
             # 오버라이드로 들어온다. 재인코딩하지 않고 재생기가 따른다.
             "clip": None,
             "narration": {"srt_text": sc.get("srt_text") or "",
-                          "text": sc.get("narration_text") or "",
+                          "text": ai.get(key) or sc.get("narration_text") or "",
                           "est_sec": sc.get("narration_seconds") or 0,
                           "over_sec": sc.get("over_sec") or 0},
             "audio": {"file": keep(au.get("file")), "source": au.get("source") or "none",

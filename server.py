@@ -31,7 +31,7 @@ from core import (activity, config, htmldoc, manuscript as ms, refs as refs_mod,
                   versions, workspace as ws)
 from core.jobs import get_registry
 from pipeline.registry import (STAGES, cache_path, cached_data,
-                               narration_of, read_cache,
+                               narration_of, pron_ai_of, read_cache,
                                stage_states, write_cache)
 import pipeline.s0_prd     # noqa: F401
 import pipeline.s0a_ask    # noqa: F401
@@ -44,6 +44,7 @@ import pipeline.s3a_imgprompt  # noqa: F401
 import pipeline.s3b_images  # noqa: F401
 import pipeline.s5_decisions # noqa: F401
 import pipeline.s6_script   # noqa: F401
+import pipeline.s6p_pron_ai  # noqa: F401  — AI 발음 교정
 import pipeline.s7_copy     # noqa: F401
 import pipeline.s8_assemble # noqa: F401
 import pipeline.s9_render   # noqa: F401
@@ -1151,6 +1152,7 @@ def get_deck(pid: int) -> Dict[str, Any]:
     caps = (cached_data(pid, slug, "s3-caption") or {}).get("items", {})
     script = (cached_data(pid, slug, "s6-script") or {}).get("slides", {})
     copy = (cached_data(pid, slug, "s7-copy") or {}).get("slides", {})
+    ai = pron_ai_of(pid, slug, script)
     audio = (cached_data(pid, slug, "s11-audio") or {}).get("slides", {})
     ov_slides = ws.load_overrides(pid, slug).get("slides", {})
     # ★ 그림과 라벨 — 「라벨 자리」 화면이 이 둘을 같이 본다. 그림이 비워 둔
@@ -1183,7 +1185,8 @@ def get_deck(pid: int) -> Dict[str, Any]:
         # 뺀 장도 목록에는 남긴다 — 되돌릴 수 있어야 하므로 숨기지 않고 표시만 한다
         s["drop"] = bool((ov_slides.get(no) or {}).get("drop"))
         sc = script.get(no) or {}
-        s["narration"] = {"text": sc.get("narration_text"),
+        # AI 발음 교정(s6p)이 s6 위에 얹힌다 — 손편집은 아래에서 또 그 위에 얹힌다
+        s["narration"] = {"text": ai.get(no) or sc.get("narration_text"),
                           "srt_text": sc.get("srt_text"),
                           "est_sec": sc.get("narration_seconds"),
                           "over_sec": sc.get("over_sec")}
@@ -2172,6 +2175,90 @@ def get_audio(pid: int, no: int):
     #   600초 캐시가 걸려 있으면 고친 발음을 눌러도 옛 소리가 다시 난다.
     return FileResponse(str(p), media_type=MIME.get(p.suffix.lower(), "audio/wav"),
                         headers={"Cache-Control": "no-store"})
+
+
+class PronAiIn(BaseModel):
+    """한 장의 발음을 AI 에게 묻는다. `text` = 지금 발음 칸의 글(저장 전이어도 된다)."""
+    text: str = ""
+
+
+@app.post("/api/projects/{pid}/pron-ai/{no}")
+def pron_ai_slide(pid: int, no: int, body: PronAiIn) -> Dict[str, Any]:
+    """「AI 발음 교정」 — 한 장. **저장하지 않고 제안만 돌려준다.**
+
+    ★ 전체 교정(s6p)은 굽기 전에 한 번 돈다. 이 버튼은 그 뒤 — 사전에 낱말을
+      더했거나 검수하다 이상한 장을 찾았을 때 — 그 장만 다시 묻는 자리다.
+      적용은 사람이 누른다(손편집이 되어 다시 돌려도 산다).
+    """
+    from pipeline import s6p_pron_ai as pron_ai
+
+    doc = _find(pid)
+    slug = doc["slug"]
+    now = (narration_of(pid, slug) or {}).get(str(no)) or {}
+    text = (body.text or now.get("text") or now.get("srt_text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="발음 칸이 비어 있습니다")
+    p = pron_ai.provider(doc)
+    try:
+        got, cost, failed = pron_ai.ask(
+            [{"no": no, "srt": now.get("srt_text") or "", "text": text}], p)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {str(e)[:160]}")
+    return {"ok": True, "no": no, "text": text, "suggest": got.get(no) or "",
+            "failed": bool(failed), "cost_usd": round(cost, 4)}
+
+
+# ── 영상 보며 검수 ─────────────────────────────────────────────────────────
+@app.get("/api/projects/{pid}/review-cues")
+def review_cues(pid: int) -> Dict[str, Any]:
+    """완성 영상(모션)의 시각 → 장·문장 표 + 지금 검수표."""
+    from render import review_video
+
+    doc = _find(pid)
+    c = review_video.cues(pid, doc["slug"])
+    return {**c, "marks": review_video.load_marks(pid, doc["slug"]),
+            "drive": review_video.drive_inbox(pid, doc["slug"])}
+
+
+class ReviewMarksIn(BaseModel):
+    marks: List[Dict[str, Any]] = []
+    merge: bool = False          # 다른 PC 에서 가져온 검수표 — 지금 것에 더한다
+
+
+@app.put("/api/projects/{pid}/review-marks")
+def review_marks_put(pid: int, body: ReviewMarksIn) -> Dict[str, Any]:
+    from render import review_video
+
+    doc = _find(pid)
+    marks = list(body.marks or [])
+    if body.merge:
+        marks = review_video.load_marks(pid, doc["slug"]) + marks
+    return {"ok": True, "marks": review_video.save_marks(pid, doc["slug"], marks)}
+
+
+@app.post("/api/projects/{pid}/review-export")
+def review_export(pid: int) -> Dict[str, Any]:
+    """검수 html 을 새로 만들고 영상과 함께 구글 드라이브 폴더에 복사한다.
+
+    ★ 집 노트북은 드라이브 데스크톱으로 그 폴더를 열어 듣는다. 영상은 바뀌었을 때만
+      다시 복사한다(300MB 를 매번 올리지 않는다).
+    """
+    from render import review_video
+
+    doc = _find(pid)
+    r = review_video.to_drive(pid, doc["slug"], doc.get("title") or "")
+    if not r.get("ok"):
+        raise HTTPException(status_code=404, detail=r.get("why") or "만들지 못했습니다")
+    return r
+
+
+@app.post("/api/projects/{pid}/review-drive/import")
+def review_drive_import(pid: int) -> Dict[str, Any]:
+    """드라이브 폴더에 새로 생긴 검수표(집에서 찍은 것)를 지금 검수표에 더한다."""
+    from render import review_video
+
+    doc = _find(pid)
+    return {"ok": True, **review_video.drive_import(pid, doc["slug"])}
 
 
 @app.post("/api/projects/{pid}/revoice/{no}")

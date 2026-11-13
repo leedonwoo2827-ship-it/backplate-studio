@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from core import config, workspace as ws
 from pipeline.registry import STAGES, write_cache
-from render import hyper, loudness
+from render import hyper, loudness, review_video
 
 APP = Path(__file__).resolve().parent.parent
 RENDER_MJS = APP / "scripts" / "render.mjs"
@@ -182,6 +182,17 @@ def run(job, pid: int, slug: str, project: Dict[str, Any], *, force: bool = Fals
 
     mb = round(out.stat().st_size / 1e6, 2)
     job.add_log(f"완성 {out.name} · {mb}MB")
+
+    # ★ 영상 옆에 검수 파일을 같이 내고, 영상과 함께 **구글 드라이브**에 복사한다 —
+    #   집 노트북에서 서버 없이 열어 듣고 표시한다(`render/review_video.py`).
+    #   못 해도 영상은 이미 나왔으니 경고만 남긴다.
+    try:
+        job.add_log("검수 파일 · 드라이브 복사")
+        rv = review_video.to_drive(pid, slug, project.get("title") or "")
+        job.add_log(f"드라이브 → {rv['dir']}" if rv.get("ok")
+                    else f"드라이브로 못 보냈습니다: {rv.get('why')}")
+    except Exception as e:                              # noqa: BLE001
+        warn.append(f"검수 파일을 못 만들었습니다: {type(e).__name__}: {e}")
 
     return write_cache(pid, slug, "s12h-hyper",
                        input_hash=stage.input_hash(pid, slug, project),

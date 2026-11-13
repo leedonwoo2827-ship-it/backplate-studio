@@ -29,6 +29,7 @@ import pipeline.s3a_imgprompt  # noqa: F401
 import pipeline.s3b_images  # noqa: F401
 import pipeline.s5_decisions  # noqa: F401
 import pipeline.s6_script   # noqa: F401
+import pipeline.s6p_pron_ai # noqa: F401  — AI 발음 교정
 import pipeline.s7_copy     # noqa: F401
 import pipeline.s8_assemble # noqa: F401
 import pipeline.s9_render   # noqa: F401
