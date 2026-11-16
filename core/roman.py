@@ -40,7 +40,9 @@ LETTER = {
 }
 
 # `  KEY: VALUE` — 키에 공백이 들어갈 수 있다(`GROUP BY`). 주석·빈 줄은 건너뛴다.
-_LINE = re.compile(r"^\s{1,4}(?!#)([^:#\n]+?)\s*:\s*(.+?)\s*$")
+# ★ 따옴표로 싼 키는 콜론을 품을 수 있다 — `"::": 더블콜론`. 저장은 그렇게 했는데
+#   읽기가 콜론에서 끊어 사전 화면에서 사라졌다(2026-11-16).
+_LINE = re.compile(r"""^\s{1,4}(?!#)("[^"\n]*"|'[^'\n]*'|[^:#\n]+?)\s*:\s*(.+?)\s*$""")
 _UNQUOTE = re.compile(r'^(["\'])(.*)\1$')
 
 _cache: Dict[str, Tuple[float, Dict[str, str]]] = {}
@@ -98,6 +100,9 @@ def rules() -> Dict[str, str]:
         if not m:
             continue
         k, v = m.group(1).strip(), m.group(2).strip()
+        mk = _UNQUOTE.match(k)
+        if mk:
+            k = mk.group(2)
         mq = _UNQUOTE.match(v)
         if mq:
             v = mq.group(2)
@@ -155,7 +160,36 @@ _JOSA = ("은|는|이가|이|가|을|를|와|과|의|에서|에게|에|으로|�
          "|조차|마저|이야|야|이다|다")
 # 조사 뒤에 한글이 이어지면 낱말의 일부다 — 「널 인지를」의 「인지」는 붙이고
 # 「널 인기」의 「인기」는 안 붙인다. 그래서 조사 다음이 한글이 아닐 때만 붙인다.
-_TAIL = r"(?:[ \t]+(" + _JOSA + r")(?![가-힣]))?"
+_TAIL = r"(?:[ \t]*(" + _JOSA + r")(?![가-힣]))?"
+
+# ★ 조사를 **바꾼 소리의 받침에** 맞춘다. 자막의 조사는 원래 글자에 맞춰 붙은 것이라
+#   `:: 로` 가 「더블콜론로」, `SQL 를` 이 「에스큐엘를」로 나간다(2026-11-16).
+_PAIR = {"은": ("은", "는"), "는": ("은", "는"), "이": ("이", "가"), "가": ("이", "가"),
+         "을": ("을", "를"), "를": ("을", "를"), "과": ("과", "와"), "와": ("과", "와"),
+         "이나": ("이나", "나"), "나": ("이나", "나"), "이란": ("이란", "란"), "란": ("이란", "란"),
+         "이라": ("이라", "라"), "라": ("이라", "라"), "이고": ("이고", "고"), "고": ("이고", "고"),
+         "이며": ("이며", "며"), "며": ("이며", "며"), "이든": ("이든", "든"), "든": ("이든", "든"),
+         "이야": ("이야", "야"), "야": ("이야", "야"), "이다": ("이다", "다"), "다": ("이다", "다")}
+
+
+def _fit(said: str, josa: str) -> str:
+    """바꾼 소리 `said` 뒤에 붙일 조사. 한글로 끝나지 않으면 그대로 둔다."""
+    if not josa:
+        return ""
+    last = said[-1:] if said else ""
+    if not ("가" <= last <= "힣"):
+        return josa
+    jong = (ord(last) - 0xAC00) % 28
+    if josa in ("으로", "로"):
+        return "으로" if jong and jong != 8 else "로"      # ㄹ 받침은 「로」
+    pair = _PAIR.get(josa)
+    if not pair:
+        return josa
+    if josa in ("은", "는", "이", "가", "을", "를", "과", "와"):
+        return pair[0] if jong else pair[1]
+    # 「이고·이며·이다」 꼴은 받침 없는 말 뒤에서 「이」가 있어도 맞는 말이다
+    # (`1위이고`). 받침 뒤에서 「이」가 빠진 것만 채운다.
+    return pair[0] if jong else josa
 
 
 def _mixed(key: str) -> bool:
@@ -180,7 +214,7 @@ def speak_mixed(text: str) -> str:
     keys = sorted(tbl, key=len, reverse=True)
     pat = re.compile(r"(?<![A-Za-z0-9])(" + "|".join(map(re.escape, keys))
                      + r")(?![A-Za-z0-9])" + _TAIL)
-    return pat.sub(lambda m: tbl[m.group(1)] + (m.group(2) or ""), text)
+    return pat.sub(lambda m: (lambda w: w + _fit(w, m.group(2) or ""))(tbl[m.group(1)]), text)
 
 
 def _spoken_alias(tbl: Dict[str, str]) -> Dict[str, str]:
@@ -218,13 +252,13 @@ def speak_roman(text: str, *, spell_rest: bool = True) -> str:
         keys = sorted(tbl, key=len, reverse=True)
         pat = re.compile(r"(?<![A-Za-z])("
                          + "|".join(map(re.escape, keys)) + r")(?![A-Za-z])" + _TAIL)
-        text = pat.sub(lambda m: tbl[m.group(1)] + (m.group(2) or ""), text)
+        text = pat.sub(lambda m: (lambda w: w + _fit(w, m.group(2) or ""))(tbl[m.group(1)]), text)
     if spell_rest:
         # 짧은 대문자 약어만 글자 이름으로. 나머지는 그대로 두고 사전에 채운다.
         rest = re.compile(_REST_RE.pattern.replace("(?<![A-Za-z])", "(?<![A-Za-z])(", 1)
                           .replace("(?![A-Za-z])", ")(?![A-Za-z])", 1) + _TAIL)
         text = rest.sub(
-            lambda m: ((_spell(m.group(1).replace("_", " ")) + (m.group(2) or ""))
+            lambda m: ((lambda w: w + _fit(w, m.group(2) or ""))(_spell(m.group(1).replace("_", " ")))
                        if is_acronym(m.group(1)) else m.group(0)), text)
     # 바꾼 자리마다 조사가 붙어 「프롬 으로」가 된다 — 두 칸 이상은 한 칸으로
     return re.sub(r"[ \t]{2,}", " ", text)
