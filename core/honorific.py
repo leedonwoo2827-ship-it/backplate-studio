@@ -363,8 +363,9 @@ def for_speech(text: str) -> str:
         return text
     t = _PAREN.sub("", text)
     t = re.sub(r"[ \t]{2,}", " ", t)
-    from core.roman import speak_roman
-    return speak_roman(speak_numbers(to_polite(t))).strip()
+    from core.roman import speak_mixed, speak_roman
+    # 숫자 섞인 사전 키(IPv6)는 숫자보다 먼저 — 안 그러면 「IPv육」이 되어 못 찾는다
+    return speak_roman(speak_numbers(speak_mixed(to_polite(t)))).strip()
 
 
 def josa(word: str, with_jong: str, without_jong: str) -> str:

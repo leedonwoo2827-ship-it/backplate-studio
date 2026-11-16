@@ -158,6 +158,50 @@ _JOSA = ("은|는|이가|이|가|을|를|와|과|의|에서|에게|에|으로|�
 _TAIL = r"(?:[ \t]+(" + _JOSA + r")(?![가-힣]))?"
 
 
+def _mixed(key: str) -> bool:
+    """숫자와 영문이 섞인 사전 키 — `IPv6`·`1EdTech`."""
+    return (any(c.isdigit() for c in key)
+            and any(c.isascii() and c.isalpha() for c in key))
+
+
+def speak_mixed(text: str) -> str:
+    """숫자 섞인 영문 사전 키를 **숫자 변환보다 먼저** 바꾼다.
+
+    ★ `for_speech` 는 숫자를 먼저 소리로 바꾼다. 그래서 사전에 `IPv6` 를 넣어도
+      발음 칸에는 이미 「IPv육」이 되어 있어 사전이 영영 못 찾았다(2026-11-16 ·
+      컴활 1과목). 이런 키만 먼저 걸고, 나머지 영문은 지금처럼 맨 마지막이다.
+    ★ 앞뒤에 영문·숫자가 붙어 있으면 안 건드린다 — `IPv64` 를 `IPv6`+`4` 로 자르지 않게.
+    """
+    if not text:
+        return text
+    tbl = {k: v for k, v in rules().items() if _mixed(k)}
+    if not tbl:
+        return text
+    keys = sorted(tbl, key=len, reverse=True)
+    pat = re.compile(r"(?<![A-Za-z0-9])(" + "|".join(map(re.escape, keys))
+                     + r")(?![A-Za-z0-9])" + _TAIL)
+    return pat.sub(lambda m: tbl[m.group(1)] + (m.group(2) or ""), text)
+
+
+def _spoken_alias(tbl: Dict[str, str]) -> Dict[str, str]:
+    """숫자 섞인 키가 **숫자만 먼저 바뀐 꼴** — `IPv6` → `IPv육`.
+
+    ★ 이미 만들어 둔 발음 칸에는 「IPv육」이 남아 있다. 「영문을 소리대로」를 눌러도
+      그걸 고치게 같은 소리로 잇는다. 영문이 남는 꼴만 — 한글만 남으면
+      `1위`→`일위` 가 「제일 위에」를 「제일위에」로 망친다.
+    """
+    from core.honorific import speak_numbers
+
+    out: Dict[str, str] = {}
+    for k, v in tbl.items():
+        if not _mixed(k):
+            continue
+        alt = speak_numbers(k)
+        if alt != k and alt not in tbl and re.search(r"[A-Za-z]", alt):
+            out[alt] = v
+    return out
+
+
 def speak_roman(text: str, *, spell_rest: bool = True) -> str:
     """영문을 한국어 소리로. 한글·숫자·기호는 건드리지 않는다.
 
@@ -170,6 +214,7 @@ def speak_roman(text: str, *, spell_rest: bool = True) -> str:
         return text
     tbl = rules()
     if tbl:
+        tbl = {**_spoken_alias(tbl), **tbl}
         keys = sorted(tbl, key=len, reverse=True)
         pat = re.compile(r"(?<![A-Za-z])("
                          + "|".join(map(re.escape, keys)) + r")(?![A-Za-z])" + _TAIL)

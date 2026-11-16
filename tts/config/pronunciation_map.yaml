@@ -11,59 +11,6 @@
 #   - 새 항목 추가 후엔 즉시 반영 (서버 재시작 불필요)
 
 rules:
-  # ── 엑셀 함수·표시 형식 코드 (2026-11-11, 엑셀 교재) ──
-  IF: 이프
-  IFS: 이프스
-  IFERROR: 이프에러
-  CHOOSE: 추즈
-  SMALL: 스몰
-  LARGE: 라지
-  AVERAGE: 애버리지
-  AVERAGEIFS: 애버리지이프스
-  INT: 인트
-  TRUNC: 트렁크
-  VLOOKUP: 브이룩업
-  HLOOKUP: 에이치룩업
-  MATCH: 매치
-  ROUND: 라운드
-  ROUNDUP: 라운드업
-  ROUNDDOWN: 라운드다운
-  DSUM: 디썸
-  DAVERAGE: 디애버리지
-  DCOUNT: 디카운트
-  DMAX: 디맥스
-  DMIN: 디민
-  WEEKDAY: 위크데이
-  MID: 미드
-  RIGHT: 라이트
-  PROPER: 프로퍼
-  UPPER: 어퍼
-  LOWER: 로어
-  HOUR: 아워
-  MINUTE: 미닛
-  SECOND: 세컨드
-  DAY: 데이
-  RANK.EQ: 랭크 이큐
-  COUNTIF: 카운트이프
-  COUNTIFS: 카운트이프스
-  SUMIFS: 썸이프스
-  SUMIF: 썸이프
-  COUNTBLANK: 카운트블랭크
-  COUNTA: 카운트에이
-  MEDIAN: 미디언
-  Enter: 엔터
-  Alt: 알트
-  Delete: 딜리트
-  pt: 포인트
-  Chart: 차트
-  Sat: 에스에이티
-  Fri: 에프알아이
-  yyyy: 와이와이와이와이
-  yy: 와이와이
-  mm: 엠엠
-  dd: 디디
-  aaa: 에이에이에이
-  ddd: 디디디
   10세기: 십 세기
   11세기: 십일 세기
   12세기: 십이 세기
@@ -76,6 +23,7 @@ rules:
   AD: 에이디
   ADDIE: 애디
   ADSL: 에이디에스엘
+  AGI: 에이지아이
   AI: 에이아이
   AIC: 에이아이씨
   ALEKS: 알렉스
@@ -92,12 +40,17 @@ rules:
   ASC: 에이에스씨
   ATM: 에이티엠
   AUC: 에이유씨
+  AVERAGE: 애버리지
+  AVERAGEIFS: 애버리지이프스
   AVG: 에이브이지
+  Alt: 알트
   BBC: 비비씨
+  BCD: 비씨디
   BERT: 버트
   BETWEEN: 비트윈
   BGM: 비지엠
   BIC: 비아이씨
+  BIOS: 바이오스
   BY: 바이
   CASCADE CONSTRAINTS: 캐스케이드 컨스트레인츠
   CASE: 케이스
@@ -108,6 +61,7 @@ rules:
   CERN: 세른
   CHAR: 씨에이치에이알
   CHECK: 체크
+  CHOOSE: 추즈
   CNN: 씨엔엔
   COALESCE: 코얼레스
   COLUMN: 칼럼
@@ -116,6 +70,10 @@ rules:
   CONNECT BY ISLEAF: 커넥트 바이 이즈 리프
   CONNECT BY ROOT: 커넥트 바이 루트
   COUNT: 카운트
+  COUNTA: 카운트에이
+  COUNTBLANK: 카운트블랭크
+  COUNTIF: 카운트이프
+  COUNTIFS: 카운트이프스
   CPU: 씨피유
   CREATE: 크리에이트
   CRISP-DM: 크리스프-디엠
@@ -123,29 +81,44 @@ rules:
   CTAS: 씨티에이에스
   CTW: 씨티더블유
   CUMEDIST: 큠 디스트
+  Chart: 차트
   ChatGPT: 챗지피티
   Ctrl: 컨트롤
+  DAVERAGE: 디애버리지
+  DAY: 데이
   DCL: 디씨엘
+  DCOUNT: 디카운트
   DDL: 디디엘
   DECODE: 디코드
   DEFAULT: 디폴트
   DELETE: 딜리트
   DENSERANK: 댄스랭크
   DENSE_RANK: 덴스 랭크
+  DES: 디이에스
   DESC: 디에스씨
+  DHCP: 디에이치씨피
   DIKSHA: 딕샤
   DISTINCT: 디스틴트
   DM: 디엠
+  DMAX: 디맥스
+  DMIN: 디민
   DML: 디엠엘
+  DNS: 디엔에스
+  DRAM: 디램
   DROP: 드롭
+  DSUM: 디썸
   DVD: 디브이디
+  Delete: 딜리트
   EBS: 이비에스
   EBSi: 이비에스아이
+  EEPROM: 이이프롬
   ELSE: 엘스
   EM: 이엠
   END: 엔드
+  EPROM: 이프롬
   ETS: 이티에스
   EXISTS: 이그지스트
+  Enter: 엔터
   F1: 에프원
   FALSE: 폴스
   FCC: 에프씨씨
@@ -158,6 +131,8 @@ rules:
   FROM: 프롬
   FULL: 풀
   FULL JOIN: 풀 조인
+  Fri: 에프알아이
+  GB: 지비
   GDP: 지디피
   GPA: 지피에이
   GPS: 지피에스
@@ -169,25 +144,40 @@ rules:
   H.264: 에이치-이륙사
   H5P: 에이치 파이브 피
   HAVING: 해빙
+  HDD: 에이치디디
+  HLOOKUP: 에이치룩업
+  HMD: 에이치엠디
   HOPE: 호프
+  HOUR: 아워
   HTML5: 에이치티엠엘-파이브
   HTTP: 에이치티티피
   HTTPS: 에이치티티피에스
   IBM: 아이비엠
   ICS: 아이씨에스
+  ICT: 아이씨티
   IDE: 아이디이
   IEEE: 아이 트리플 이
   IELTS: 아이엘츠
+  IF: 이프
+  IFERROR: 이프에러
+  IFS: 이프스
+  IMAP: 아이엠에이피
   IN: 인
   INDEX: 인덱스
   INNER JOIN: 이너 조인
   INSERT: 인서트
+  INT: 인트
   INTO: 인투
+  IP: 아이피
+  IPv4: 아이피브이포
+  IPv6: 아이피브이식스
+  IR: 아이알
   IS: 아이에스
   IS NULL: 이즈 널
   JOIN: 조인
   JSON: 제이슨
   JVC: 제이브이씨
+  KB: 케이비
   KBS: 케이비에스
   KDD: 케이디디
   KERIS: 케리스
@@ -196,6 +186,8 @@ rules:
   KUHT: 케이유에이치티
   Khanmigo: 칸미고
   LAG: 래그
+  LAN: 랜
+  LARGE: 라지
   LAST: 엘에이에스티
   LASTVALUE: 라스트 밸류
   LEAD: 리드
@@ -206,17 +198,26 @@ rules:
   LINK: 링크
   LMS: 엘엠에스
   LOOCV: 엘오오씨브이
+  LOWER: 로어
   LPAD: 엘피에이디
   M1: 엠원
   MA: 엠에이
+  MAC: 맥
   MAR: 엠에이알
   MARGIN: 마진
+  MATCH: 매치
   MAX: 맥스
+  MB: 엠비
   MBC: 엠비씨
+  MBR: 엠비알
   MC: 엠씨
   MCAR: 엠씨에이알
+  MEDIAN: 미디언
+  MID: 미드
+  MIME: 엠아이엠이
   MIN: 민
   MINUS: 마이너스
+  MINUTE: 미닛
   MIT: 엠아이티
   MMF: 엠엠에프
   MOD: 엠오디
@@ -224,6 +225,7 @@ rules:
   MP: 엠피
   MP3: 엠피쓰리
   MPEG: 엠피이지
+  MR: 엠알
   MV: 엠브이
   NA: 엔에이
   NAIRU: 나이루
@@ -260,41 +262,63 @@ rules:
   PARTITION BY: 파티션 바이
   PATH: 피에이티에이치
   PBS: 피비에스
+  PC: 피씨
   PDF: 피디에프
   PERCENTRANK: 퍼센트 랭크
   PLATO: 플레이토
+  POP: 피오피
+  POST: 포스트
   PRIMARY KEY: 프라이머리 키
   PRIOR: 프라이어
+  PROM: 프롬
+  PROPER: 프로퍼
   PhET: 피에이치이티
+  RAM: 램
   RANGE: 레인지
   RANK: 랭크
+  RANK.EQ: 랭크 이큐
   RATIOTOREPORT: 래시오 투 리포트
   RENAME: 리네임
   REVOKE: 리보크
+  RIGHT: 라이트
   RIGHT JOIN: 라이트 조인
   ROC: 알오씨
   ROLLBACK: 롤백
+  ROM: 롬
   ROOT: 알오오티
+  ROUND: 라운드
+  ROUNDDOWN: 라운드다운
+  ROUNDUP: 라운드업
   ROWID: 로우아이디
   ROWNUM: 로우넘
   ROWNUMBER: 로우 넘버
   ROWS: 로우스
   ROW_NUMBER: 로우 넘버
+  RSA: 알에스에이
   RSS: 알에스에스
   SAVEPOINT: 세이브포인트
   SBS: 에스비에스
   SCORM: 스콤
   SDK: 에스디케이
+  SECOND: 세컨드
   SELECT: 셀렉트
   SET: 셋
+  SMALL: 스몰
+  SMTP: 에스엠티피
   SQL: 에스큐엘
   SQL Server: 에스큐엘 서버
   SQLD: 에스큐엘디
+  SRAM: 에스램
+  SSD: 에스에스디
   START WITH: 스타트 위드
+  STT: 에스티티
   SUBSTR: 서브스트링
   SUM: 썸
+  SUMIF: 썸이프
+  SUMIFS: 썸이프스
   SYS: 에스와이에스
   SYS CONNECT BY PATH: 시스 커넥트 바이 패스
+  Sat: 에스에이티
   SoLAR: 솔라
   TABLE: 테이블
   TABLE ACCESS BY INDEX ROWID: 테이블 액세스 바이 인덱스 로우아이디
@@ -311,7 +335,9 @@ rules:
   TPS: 티피에스
   TRIM: 티알아이엠
   TRUE: 트루
+  TRUNC: 트렁크
   TRUNCATE: 트렁케이트
+  TTS: 티티에스
   TV: 티브이
   UNBOUNDED FOLLOWING: 언바운디드 팔로잉
   UNBOUNDED PRECEDING: 언바운디드 프리시딩
@@ -322,23 +348,29 @@ rules:
   UNIQUE: 유니크
   UNKNOWN: 언노운
   UPDATE: 업데이트
+  UPPER: 어퍼
   URL: 유알엘
   USB: 유에스비
   USING: 유징
   VALUES: 밸류스
   VHS: 브이에이치에스
   VIEW: 뷰
+  VLOOKUP: 브이룩업
+  VOD: 브이오디
   VR: 브이알
   VRX: 브이알엑스
   W3C: 더블류쓰리씨
+  WEEKDAY: 위크데이
   WHA: 더블유에이치에이
   WHATWG: 왓 더블유지
   WHEN: 웬
   WHERE: 웨어
   WHO: 더블유에이치오
   WITH: 위드
+  XAI: 엑스에이아이
   XML: 엑스엠엘
   YTN: 와이티엔
+  aaa: 에이에이에이
   all: 올
   alternative: 얼터너티브
   apply: 어플라이
@@ -353,6 +385,8 @@ rules:
   complete.cases: 컴플리트 케이시스
   cut off: 컷 오프
   data.table: 데이터 테이블
+  dd: 디디
+  ddd: 디디디
   ddply: 디디플라이
   dim: 딤
   drop: 드롭
@@ -364,8 +398,10 @@ rules:
   matrix: 매트릭스
   melt: 멜트
   merge: 머지
+  mm: 엠엠
   p-value: 피-밸류
   plyr: 플라이알
+  pt: 포인트
   rbind: 알바인드
   reshape: 리셰이프
   sapply: 에스어플라이
@@ -379,6 +415,8 @@ rules:
   unlist: 언리스트
   xAPI: 엑스에이피아이
   xMOOC: 엑스무크
+  yy: 와이와이
+  yyyy: 와이와이와이와이
   개수: 갯수
   배지: 뱃지
   셉니다: 셈니다
