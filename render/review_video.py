@@ -88,6 +88,44 @@ def _marks_doc(pid: int, slug: str) -> Dict[str, Any]:
     return ws.read_json(ws.step_dir(pid, slug, "deck") / F_MARKS, {}) or {}
 
 
+def audio_cues(pid: int, slug: str) -> Dict[str, Any]:
+    """**영상이 없을 때** — 장별 음성을 차례로 이어 튼다고 보고 같은 표를 만든다.
+
+    ★ 영상을 굽기 전에 소리부터 끝까지 듣고 고치는 일이 실제로 먼저 온다
+      (2026-11-16 — SQLD 2과목 77분을 「음성 확인까지만」). 그때도 M 으로 찍고
+      장으로 가는 길은 같아야 한다. 시각은 「이어 틀었을 때」 기준이다.
+    """
+    from pipeline.registry import cached_data, narration_of
+    from vendor.vw_srt import auto_time_cues, split_into_cues
+
+    outline = cached_data(pid, slug, "s2b-outline") or {}
+    tts = (cached_data(pid, slug, "s10-tts") or {}).get("slides") or {}
+    ov = ws.load_overrides(pid, slug).get("slides", {}) or {}
+    now = narration_of(pid, slug)
+    slides: List[Dict[str, Any]] = []
+    out: List[Dict[str, Any]] = []
+    t = 0.0
+    for sl in outline.get("slides") or []:
+        k = str(sl["no"])
+        if (ov.get(k) or {}).get("drop"):
+            continue
+        sec = float((tts.get(k) or {}).get("duration_sec") or 0)
+        if sec <= 0:
+            continue
+        title = (ov.get(k) or {}).get("title") or sl.get("title") or ""
+        slides.append({"no": int(k), "start": round(t, 2), "sec": sec, "title": title})
+        srt = (now.get(k) or {}).get("srt_text") or ""
+        pieces = auto_time_cues(split_into_cues(srt), sec) if srt else []
+        if not pieces:
+            out.append({"start": round(t, 2), "end": round(t + sec, 2),
+                        "no": int(k), "i": 0, "title": title, "text": title})
+        for i, c in enumerate(pieces):
+            out.append({"start": round(t + c.start, 2), "end": round(t + c.end, 2),
+                        "no": int(k), "i": i, "title": title, "text": c.text})
+        t += sec
+    return {"slides": slides, "cues": out, "sec": round(t, 2)}
+
+
 def load_marks(pid: int, slug: str) -> List[Dict[str, Any]]:
     return list(_marks_doc(pid, slug).get("marks") or [])
 

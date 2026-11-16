@@ -2621,3 +2621,9 @@ label.check input { width: auto; }
 .rv-inbox{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;
   padding:7px 10px;background:var(--ok-wash);color:var(--ok);border-radius:var(--r-sm);font-size:var(--t-sm);font-weight:600}
 .rv-inbox[hidden]{display:none}
+
+/* 영상 굽기 전 — 슬라이드 면 + 장별 음성 */
+.rv-stage{position:relative;overflow:hidden;border-radius:var(--r-sm);background:#000;width:100%}
+.rv-frame{border:0;display:block;pointer-events:none}
+.rv-audio{width:100%;margin-top:6px}
+.rv-clock{margin-top:4px;color:var(--text-2);font-size:var(--t-xs);font-variant-numeric:tabular-nums}

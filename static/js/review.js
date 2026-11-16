@@ -12,14 +12,91 @@
  *
  * ★ 다른 PC 에서 들은 검수표(`…-검수표.json`)를 여기서 불러온다. 그 파일은
  *   영상 옆의 `…-영상검수.html` 이 만든다(서버 없이 열린다).
+ *
+ * ★ **영상을 굽기 전에도 쓴다**(2026-11-16 — 77분짜리를 굽는 두 시간 반을 기다리지
+ *   않고 소리부터 들었다). 그때는 슬라이드 면 + 장별 음성을 차례로 이어 틀어
+ *   영상처럼 보여 준다(`slidePlayer`). 찍는 법·장으로 가는 길은 같다.
  */
 "use strict";
 
-import { el, api, icon, toast } from "./util.js";
+import { el, api, icon, toast, fitFrame } from "./util.js";
 import { state } from "./store.js";
 
 const LAG = 1.5;      // 듣고 누르기까지 늦는 만큼 — 그 앞 문장을 찍는다
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
+/* 재생기 둘 — 같은 모양(time · seek · toggle · play · pause)이라 아래 코드는 어느 쪽인지 모른다. */
+function videoPlayer(left, src, tick) {
+  const v = el("video", "rv-video");
+  v.controls = true;
+  v.preload = "metadata";
+  v.src = src;
+  v.addEventListener("timeupdate", tick);
+  v.addEventListener("seeked", tick);
+  left.prepend(v);
+  return {
+    time: () => v.currentTime,
+    seek: (t) => { v.currentTime = Math.max(0, t); },
+    toggle: () => { if (v.paused) v.play(); else v.pause(); },
+    play: () => v.play().catch(() => {}),
+    pause: () => v.pause(),
+  };
+}
+
+/** 영상이 없을 때 — 그 장의 슬라이드 면을 띄우고 장별 음성을 이어 튼다. */
+function slidePlayer(left, pid, A, tick) {
+  const S = A.slides;
+  const stage = el("div", "rv-stage");
+  const fr = el("iframe", "rv-frame");
+  fr.title = "슬라이드";
+  stage.appendChild(fr);
+  const a = el("audio", "rv-audio");
+  a.controls = true;
+  a.preload = "auto";
+  const clock = el("div", "rv-clock");
+  left.prepend(stage, a, clock);
+  fitFrame(stage, fr, 1920);
+
+  let si = -1, want = 0, go = false;
+  const total = fmt(A.sec);
+  function load(i, off, play) {
+    if (i !== si) {
+      si = i;
+      want = off;
+      go = play;
+      a.src = `/api/projects/${pid}/audio/${S[i].no}`;
+      fr.src = `/preview/${pid}?n=${S[i].no}&bare=1#${S[i].no}`;
+    } else {
+      a.currentTime = off;
+      if (play) a.play().catch(() => {});
+    }
+  }
+  a.addEventListener("loadedmetadata", () => {
+    a.currentTime = Math.min(want, Math.max(0, a.duration - 0.1));
+    if (go) a.play().catch(() => {});
+  });
+  a.addEventListener("ended", () => { if (si + 1 < S.length) load(si + 1, 0, true); });
+  const paint = () => {
+    clock.textContent = `전체 ${fmt(S[si].start + a.currentTime)} / ${total} · `
+      + `${S[si].no}장 (${si + 1}/${S.length})`;
+    tick();
+  };
+  a.addEventListener("timeupdate", paint);
+  a.addEventListener("seeked", paint);
+  const idx = (t) => {
+    let k = 0;
+    for (let i = 0; i < S.length && S[i].start <= t; i++) k = i;
+    return k;
+  };
+  load(0, 0, false);
+  return {
+    time: () => (si < 0 ? 0 : S[si].start + a.currentTime),
+    seek: (t) => { t = Math.max(0, t); const i = idx(t); load(i, t - S[i].start, !a.paused); },
+    toggle: () => { if (a.paused) a.play().catch(() => {}); else a.pause(); },
+    play: () => a.play().catch(() => {}),
+    pause: () => a.pause(),
+  };
+}
 
 /** 패널을 만든다. `goto(no)` = 그 장의 발음 칸으로 가기. 닫을 때 `destroy()`. */
 export function reviewPanel(goto) {
@@ -42,15 +119,13 @@ export function reviewPanel(goto) {
     } catch (e) { toast("검수표를 저장하지 못했습니다: " + e.message, "err"); }
   };
 
-  const v = el("video", "rv-video");
-  v.controls = true;
-  v.preload = "metadata";
+  let P = null;            // 재생기 — 영상이면 videoPlayer, 없으면 slidePlayer
   const now = el("div", "rv-now", "재생하면 지금 읽는 문장이 여기 뜹니다.");
   const keys = el("div", "rv-keys");
   keys.innerHTML = "<kbd>M</kbd> 여기 표시 · <kbd>←</kbd><kbd>→</kbd> 5초 · "
     + "<kbd>Space</kbd> 재생·멈춤 · <kbd>R</kbd> 지금 문장 처음부터";
   const left = el("div", "rv-left");
-  left.append(v, now, keys);
+  left.append(now, keys);
 
   const cnt = el("b", "rv-cnt", "검수표 0줄");
   const mk = (ic, label, tip) => {
@@ -107,7 +182,7 @@ export function reviewPanel(goto) {
       const li = el("li", "rv-row" + (flash === `${m.no}:${m.i}` ? " flash" : ""));
       const t = el("a", "rv-t", fmt(m.t));
       t.title = "그 2초 앞부터 다시 듣기";
-      t.onclick = () => { v.currentTime = Math.max(0, m.t - 2); v.play(); };
+      t.onclick = () => { P.seek(m.t - 2); P.play(); };
       const tx = el("a", "rv-tx");
       tx.append(el("b", null, `${m.no}장`), el("span", null, m.text || ""));
       tx.title = "그 장의 발음 칸으로 갑니다";
@@ -123,11 +198,11 @@ export function reviewPanel(goto) {
   }
 
   function mark() {
-    if (!C || !C.cues.length) return;
-    const c = C.cues[at(Math.max(0, v.currentTime - LAG))];
+    if (!P || !C.cues.length) return;
+    const c = C.cues[at(Math.max(0, P.time() - LAG))];
     const k = `${c.no}:${c.i}`;
     if (!marks.some((m) => `${m.no}:${m.i}` === k)) {
-      marks.push({no: c.no, i: c.i, t: Math.round(v.currentTime * 10) / 10,
+      marks.push({no: c.no, i: c.i, t: Math.round(P.time() * 10) / 10,
                   text: c.text, memo: ""});
       marks.sort((a, b) => a.t - b.t);
       save();
@@ -135,13 +210,11 @@ export function reviewPanel(goto) {
     draw(k);
   }
   const paintNow = () => {
-    if (!C || !C.cues.length) return;
-    const c = C.cues[at(v.currentTime)];
+    if (!P || !C.cues.length) return;
+    const c = C.cues[at(P.time())];
     now.textContent = "";
     now.append(el("b", null, `${c.no}장`), el("span", null, c.text));
   };
-  v.addEventListener("timeupdate", paintNow);
-  v.addEventListener("seeked", paintNow);
 
   /* 버튼을 누른 뒤 포커스를 뺀다 — 안 빼면 Space 가 그 버튼을 또 누른다 */
   const once = (b, fn) => { b.onclick = (e) => { e.currentTarget.blur(); fn(); }; };
@@ -204,16 +277,16 @@ export function reviewPanel(goto) {
   /* 키 — 캡처 단계에서 먼저 받아 덱의 ←/→(장 넘김)보다 앞선다. 입력칸 안에서는 양보.
      e.code 로 본다: 한글 자판이면 M 이 「ㅡ」로 온다. */
   const onKey = (e) => {
-    if (!box.isConnected || !C || !C.video) return;
+    if (!box.isConnected || !P) return;
     const t = e.target;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.tagName === "SELECT")) return;
     const k = e.code;
     if (k === "KeyM") mark();
-    else if (k === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - 5);
-    else if (k === "ArrowRight") v.currentTime += 5;
-    else if (k === "Space") { if (v.paused) v.play(); else v.pause(); }
-    else if (k === "KeyR" && C.cues.length) { v.currentTime = C.cues[at(v.currentTime)].start; v.play(); }
+    else if (k === "ArrowLeft") P.seek(P.time() - 5);
+    else if (k === "ArrowRight") P.seek(P.time() + 5);
+    else if (k === "Space") P.toggle();
+    else if (k === "KeyR" && C.cues.length) { P.seek(C.cues[at(P.time())].start); P.play(); }
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -224,13 +297,20 @@ export function reviewPanel(goto) {
     C = r;
     marks = r.marks || [];
     paintInbox(r.drive);
-    if (!r.video) {
+    if (!r.video && (r.audio || {}).slides && r.audio.slides.length) {
+      // 영상이 아직 없다 — 슬라이드 면 + 장별 음성으로 듣는다
+      C.cues = r.audio.cues;
+      P = slidePlayer(left, pid, r.audio, paintNow);
+      left.appendChild(el("div", "rv-stale",
+        "모션 영상을 굽기 전이라 슬라이드와 장별 음성을 이어서 틉니다 — 찍는 법은 같습니다."));
+      bExport.disabled = true;
+    } else if (!r.video) {
       left.textContent = "";
       left.appendChild(el("div", "rv-none",
-        "모션 영상이 아직 없습니다 — «영상 렌더링» 화면에서 모션 영상(s12h)을 먼저 구우세요."));
+        "음성도 영상도 아직 없습니다 — «음성/자막 굽기» 를 먼저 하세요."));
       bExport.disabled = true;
     } else {
-      v.src = `/api/projects/${pid}/file/${encodeURI(r.video)}`;
+      P = videoPlayer(left, `/api/projects/${pid}/file/${encodeURI(r.video)}`, paintNow);
       if (r.stale) {
         left.appendChild(el("div", "rv-stale",
           "영상을 구운 뒤 덱이 바뀌었습니다 — 시각은 맞지만 문장 글은 지금 덱 기준일 수 있습니다."));
@@ -245,7 +325,7 @@ export function reviewPanel(goto) {
   return {
     el: box,
     destroy() {
-      v.pause();
+      if (P) P.pause();
       removeEventListener("keydown", onKey, true);
       box.remove();
     },

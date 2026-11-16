@@ -2216,7 +2216,9 @@ def review_cues(pid: int) -> Dict[str, Any]:
 
     doc = _find(pid)
     c = review_video.cues(pid, doc["slug"])
-    return {**c, "marks": review_video.load_marks(pid, doc["slug"]),
+    # 영상이 아직 없으면 장별 음성을 이어 트는 표를 준다 — 음성부터 듣고 고칠 때
+    audio = {} if c.get("video") else review_video.audio_cues(pid, doc["slug"])
+    return {**c, "audio": audio, "marks": review_video.load_marks(pid, doc["slug"]),
             "drive": review_video.drive_inbox(pid, doc["slug"])}
 
 
