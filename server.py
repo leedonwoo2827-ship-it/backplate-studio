@@ -2219,7 +2219,23 @@ def review_cues(pid: int) -> Dict[str, Any]:
     # 영상이 아직 없으면 장별 음성을 이어 트는 표를 준다 — 음성부터 듣고 고칠 때
     audio = {} if c.get("video") else review_video.audio_cues(pid, doc["slug"])
     return {**c, "audio": audio, "marks": review_video.load_marks(pid, doc["slug"]),
-            "drive": review_video.drive_inbox(pid, doc["slug"])}
+            "drive": review_video.drive_inbox(pid, doc["slug"]),
+            "heard": review_video.load_heard(pid, doc["slug"])}
+
+
+class ReviewHeardIn(BaseModel):
+    nos: List[int] = []
+    reset: bool = False          # 처음부터 다시 듣기 — 들은 장 표시를 지운다
+
+
+@app.put("/api/projects/{pid}/review-heard")
+def review_heard_put(pid: int, body: ReviewHeardIn) -> Dict[str, Any]:
+    """끝까지 들은 장을 적는다(검수 패널이 장이 끝날 때마다 보낸다)."""
+    from render import review_video
+
+    doc = _find(pid)
+    return {"ok": True,
+            "heard": review_video.add_heard(pid, doc["slug"], body.nos, reset=body.reset)}
 
 
 class ReviewMarksIn(BaseModel):

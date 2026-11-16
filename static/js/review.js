@@ -49,7 +49,7 @@ function videoPlayer(left, src, tick) {
 }
 
 /** 영상이 없을 때 — 그 장의 슬라이드 면을 띄우고 장별 음성을 이어 튼다. */
-function slidePlayer(left, pid, A, tick) {
+function slidePlayer(left, pid, A, tick, heard) {
   const S = A.slides;
   const stage = el("div", "rv-stage");
   const fr = el("iframe", "rv-frame");
@@ -80,7 +80,10 @@ function slidePlayer(left, pid, A, tick) {
     a.currentTime = Math.min(want, Math.max(0, a.duration - 0.1));
     if (go) a.play().catch(() => {});
   });
-  a.addEventListener("ended", () => { if (si + 1 < S.length) load(si + 1, 0, true); });
+  a.addEventListener("ended", () => {
+    if (heard) heard(S[si].no);          // 끝까지 들었다
+    if (si + 1 < S.length) load(si + 1, 0, true);
+  });
   const paint = () => {
     clock.textContent = `전체 ${fmt(S[si].start + a.currentTime)} / ${total} · `
       + `${S[si].no}장 (${si + 1}/${S.length})`;
@@ -129,8 +132,24 @@ export function reviewPanel(goto) {
   const keys = el("div", "rv-keys");
   keys.innerHTML = "<kbd>M</kbd> 여기 표시 · <kbd>←</kbd><kbd>→</kbd> 5초 · "
     + "<kbd>Space</kbd> 재생·멈춤 · <kbd>R</kbd> 지금 문장 처음부터";
+  /* 장으로 바로 가기 + 들은 장 진도 — 지금 문장 줄 바로 밑(2026-11-16 요청).
+     끝까지 재생된 장은 저절로 「들은 장」이 되고, 「안 들은 장부터」가 첫 빈 장으로 간다. */
+  const nav = el("div", "rv-nav");
+  const goIn = el("input", "rv-goin");
+  goIn.type = "number";
+  goIn.min = "1";
+  goIn.placeholder = "장";
+  goIn.title = "몇 장부터 들을지 — 번호를 넣고 Enter";
+  const goBtn = el("button", "btn sm", "이동");
+  goBtn.type = "button";
+  const heardLb = el("span", "rv-heard");
+  const nextBtn = el("button", "btn sm primary", "안 들은 장부터 ▶");
+  nextBtn.type = "button";
+  const resetBtn = el("button", "btn sm ghost", "들은 표시 지우기");
+  resetBtn.type = "button";
+  nav.append(goIn, goBtn, heardLb, nextBtn, resetBtn);
   const left = el("div", "rv-left");
-  left.append(now, keys);
+  left.append(now, nav, keys);
 
   const cnt = el("b", "rv-cnt", "검수표 0줄");
   const mk = (ic, label, tip) => {
@@ -224,10 +243,43 @@ export function reviewPanel(goto) {
      (77분을 한 번에 다 듣지 않는다). 영상·음성 모드는 시각 기준이 달라 따로 둔다. */
   let posKey = "";
   let lastSave = 0;
+  let heard = new Set();
+  let order = [];           // 재생 순서의 장 번호
+  let playingNo = null;
+  // 안 들은 장 — 지금 자리 **뒤에서** 먼저 찾고, 없으면 앞에서
+  const nextUnheard = () => {
+    const i = Math.max(0, order.indexOf(playingNo));
+    return order.slice(i + 1).find((n) => !heard.has(n))
+      ?? order.slice(0, i + 1).find((n) => !heard.has(n));
+  };
+  const paintHeard = () => {
+    heardLb.textContent = `들은 장 ${order.filter((n) => heard.has(n)).length}/${order.length}`;
+    const next = nextUnheard();
+    nextBtn.hidden = next == null;
+    nextBtn.textContent = `안 들은 장부터 (${next}장) ▶`;
+  };
+  const markHeard = (no) => {
+    if (no == null || heard.has(no)) return;
+    heard.add(no);
+    paintHeard();
+    api(`/api/projects/${pid}/review-heard`, {method: "PUT", body: {nos: [no]}})
+      .catch(() => { /* 다음 장에서 또 보낸다 */ });
+  };
+  const goSlide = (no, play) => {
+    const c = C && C.cues.find((x) => x.no === no);
+    if (!c) { toast(`${no}장이 없습니다`, "err"); return; }
+    P.seek(c.start + 0.01);
+    if (play) P.play();
+  };
   const paintNow = () => {
     if (!P || !C.cues.length) return;
     const t = P.time();
     const c = C.cues[at(t)];
+    // 재생하다 다음 장으로 넘어가면 앞 장은 끝까지 들은 것이다
+    if (playingNo != null && c.no !== playingNo && order.indexOf(c.no) === order.indexOf(playingNo) + 1) {
+      markHeard(playingNo);
+    }
+    if (playingNo !== c.no) { playingNo = c.no; paintHeard(); }
     now.textContent = "";
     now.append(el("b", null, `${c.no}장`), el("span", null, c.text));
     if (posKey && Math.abs(t - lastSave) > 2) {
@@ -321,14 +373,38 @@ export function reviewPanel(goto) {
   };
   addEventListener("keydown", onKey, true);
 
+  const once2 = (b, fn) => { b.onclick = (e) => { e.currentTarget.blur(); fn(); }; };
+  const doGo = () => {
+    const n = Number(goIn.value);
+    if (!n || !P) return;
+    goSlide(n, true);
+    goIn.blur();
+  };
+  once2(goBtn, doGo);
+  goIn.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doGo(); } };
+  once2(nextBtn, () => {
+    const next = nextUnheard();
+    if (next != null && P) goSlide(next, true);
+  });
+  once2(resetBtn, async () => {
+    if (!confirm("들은 장 표시를 모두 지울까요? (검수표는 그대로입니다)")) return;
+    try {
+      const r = await api(`/api/projects/${pid}/review-heard`,
+                          {method: "PUT", body: {nos: [], reset: true}});
+      heard = new Set(r.heard);
+      paintHeard();
+    } catch (e) { toast("지우지 못했습니다: " + e.message, "err"); }
+  });
+
   api(`/api/projects/${pid}/review-cues`).then((r) => {
     C = r;
     marks = r.marks || [];
+    heard = new Set(r.heard || []);
     paintInbox(r.drive);
     if (!r.video && (r.audio || {}).slides && r.audio.slides.length) {
       // 영상이 아직 없다 — 슬라이드 면 + 장별 음성으로 듣는다
       C.cues = r.audio.cues;
-      P = slidePlayer(left, pid, r.audio, paintNow);
+      P = slidePlayer(left, pid, r.audio, paintNow, markHeard);
       posKey = `rv.pos.${pid}.audio`;
       resume();
       left.appendChild(el("div", "rv-stale",
@@ -348,6 +424,8 @@ export function reviewPanel(goto) {
           "영상을 구운 뒤 덱이 바뀌었습니다 — 시각은 맞지만 문장 글은 지금 덱 기준일 수 있습니다."));
       }
     }
+    order = [...new Set(C.cues.map((c) => c.no))];
+    paintHeard();
     draw();
   }).catch((e) => {
     left.textContent = "";

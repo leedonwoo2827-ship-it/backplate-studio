@@ -155,6 +155,20 @@ def save_marks(pid: int, slug: str, marks: List[Dict[str, Any]]) -> List[Dict[st
     return clean
 
 
+def load_heard(pid: int, slug: str) -> List[int]:
+    """끝까지 들은 장 — 어디까지 들었는지가 검수의 진도다."""
+    return sorted({int(x) for x in _marks_doc(pid, slug).get("heard") or []})
+
+
+def add_heard(pid: int, slug: str, nos: List[int], *, reset: bool = False) -> List[int]:
+    doc = _marks_doc(pid, slug)
+    got = set() if reset else {int(x) for x in doc.get("heard") or []}
+    got |= {int(x) for x in nos or []}
+    doc["heard"] = sorted(got)
+    ws.write_json(ws.step_dir(pid, slug, "deck") / F_MARKS, doc)
+    return doc["heard"]
+
+
 # ── 구글 드라이브 ─────────────────────────────────────────────────────────
 def drive_root() -> Optional[Path]:
     """드라이브 데스크톱의 「내 드라이브」. 설정(`review_drive`) → 환경변수 → G: 순으로 찾는다."""
