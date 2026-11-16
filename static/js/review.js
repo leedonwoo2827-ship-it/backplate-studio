@@ -36,7 +36,12 @@ function videoPlayer(left, src, tick) {
   left.prepend(v);
   return {
     time: () => v.currentTime,
-    seek: (t) => { v.currentTime = Math.max(0, t); },
+    // 영상 정보가 오기 전에 옮기면 무시된다 — 그때는 정보가 온 뒤에 옮긴다
+    seek: (t) => {
+      t = Math.max(0, t);
+      if (v.readyState >= 1) v.currentTime = t;
+      else v.addEventListener("loadedmetadata", () => { v.currentTime = t; }, {once: true});
+    },
     toggle: () => { if (v.paused) v.play(); else v.pause(); },
     play: () => v.play().catch(() => {}),
     pause: () => v.pause(),
@@ -215,11 +220,28 @@ export function reviewPanel(goto) {
     }
     draw(k);
   }
+  /* ★ 들은 자리를 남긴다 — 패널을 닫았다 열거나 새로고침해도 거기서 잇는다
+     (77분을 한 번에 다 듣지 않는다). 영상·음성 모드는 시각 기준이 달라 따로 둔다. */
+  let posKey = "";
+  let lastSave = 0;
   const paintNow = () => {
     if (!P || !C.cues.length) return;
-    const c = C.cues[at(P.time())];
+    const t = P.time();
+    const c = C.cues[at(t)];
     now.textContent = "";
     now.append(el("b", null, `${c.no}장`), el("span", null, c.text));
+    if (posKey && Math.abs(t - lastSave) > 2) {
+      lastSave = t;
+      try { localStorage.setItem(posKey, String(Math.floor(t))); } catch { /* 없어도 된다 */ }
+    }
+  };
+  const resume = () => {
+    let t = 0;
+    try { t = Number(localStorage.getItem(posKey) || 0); } catch { /* 처음부터 */ }
+    if (t > 5) {
+      P.seek(t);
+      toast(`지난번 들은 자리(${fmt(t)})부터 잇습니다 — 처음부터는 검수표 시각이나 ← 로`);
+    }
   };
 
   /* 버튼을 누른 뒤 포커스를 뺀다 — 안 빼면 Space 가 그 버튼을 또 누른다 */
@@ -307,6 +329,8 @@ export function reviewPanel(goto) {
       // 영상이 아직 없다 — 슬라이드 면 + 장별 음성으로 듣는다
       C.cues = r.audio.cues;
       P = slidePlayer(left, pid, r.audio, paintNow);
+      posKey = `rv.pos.${pid}.audio`;
+      resume();
       left.appendChild(el("div", "rv-stale",
         "모션 영상을 굽기 전이라 슬라이드와 장별 음성을 이어서 틉니다 — 찍는 법은 같습니다."));
       bExport.disabled = true;
@@ -317,6 +341,8 @@ export function reviewPanel(goto) {
       bExport.disabled = true;
     } else {
       P = videoPlayer(left, `/api/projects/${pid}/file/${encodeURI(r.video)}`, paintNow);
+      posKey = `rv.pos.${pid}.video`;
+      resume();
       if (r.stale) {
         left.appendChild(el("div", "rv-stale",
           "영상을 구운 뒤 덱이 바뀌었습니다 — 시각은 맞지만 문장 글은 지금 덱 기준일 수 있습니다."));
