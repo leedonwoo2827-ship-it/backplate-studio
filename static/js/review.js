@@ -190,7 +190,13 @@ export function reviewPanel(goto) {
       const x = el("button", "rv-x", "✕");
       x.type = "button";
       x.title = "빼기";
-      x.onclick = () => { marks = marks.filter((y) => y !== m); draw(); save(); };
+      /* ★ 장·문장으로 찾는다 — 저장이 끝나면 `marks` 가 서버가 준 새 객체로 바뀌어,
+         그린 뒤의 객체(m)로 찾으면 아무것도 안 지워진다(2026-11-16 실측) */
+      x.onclick = () => {
+        marks = marks.filter((y) => !(y.no === m.no && y.i === m.i));
+        draw();
+        save();
+      };
       li.append(t, tx, x);
       if (m.memo) li.appendChild(el("div", "rv-memo", m.memo));
       list.appendChild(li);
