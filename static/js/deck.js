@@ -127,6 +127,19 @@ export const meta = {
 손으로 고쳐 둔 발음은 그대로 둡니다 — 영문만 바꿉니다
 바꾼 뒤 음성·자막·완성본까지 이어서 굽습니다`;
 
+    /* ★ AI 발음 교정 — **덱 전체.** «음성/자막 굽기» 맨 앞에서도 저절로 돌지만, 굽기 전에
+     * 결과를 먼저 보고 싶을 때가 있다(2026-11-16 요청). 손으로 고친 장은 안 보내고,
+     * 이미 고친 장은 원고가 안 바뀌었으면 다시 안 묻는다 — 다시 눌러도 대개 $0 이다.
+     * 고친 뒤 장을 열면 발음 칸에 AI 결과가 들어 있다. 소리는 굽기에서 나온다. */
+    const aBtn = el("button", "btn sm");
+    aBtn.type = "button";
+    const aLab = el("span", null, "(전체) AI 발음 교정");
+    aBtn.append(icon("wand", 13), aLab);
+    aBtn.title = `발음 대본 전체를 Claude 가 소리대로 고칩니다 (10장에 약 $0.2~0.5)
+VLOOKUP → 브이룩업 · #N/A → 샵 엔에이 · 101101(2진수) → 일공일일공일
+손으로 고친 장은 그대로 둡니다 · 이미 고친 장은 다시 묻지 않습니다
+소리는 «음성/자막 굽기» 에서 만들어집니다`;
+
     const [bBtn, bLab] = mkRun(DECK.bake, "음성/자막 굽기", "음성 합성 · 자막 · 조립 · 파일 빌드");
     bBtn.classList.add("primary");
 
@@ -181,6 +194,8 @@ export const meta = {
                                   "자막 대본 생성", "자막이 나왔습니다");
     pBtn.onclick = () => pronounceAll(pBtn, pLab, [bgm, sBtn, bBtn]);
     eBtn.onclick = () => romanAll(eBtn, eLab, [bgm, sBtn, pBtn, bBtn], bBtn, bLab);
+    aBtn.onclick = () => runChain(["s6p-pron-ai"], aBtn, aLab, [bgm, sBtn, pBtn, eBtn, bBtn, rBtn],
+                                  "AI 발음 교정", "AI 발음 교정이 끝났습니다 — 장을 열어 확인하고 굽으세요");
     bBtn.onclick = () => runChain(BAKE, bBtn, bLab, [bgm, sBtn, pBtn, rBtn],
                                   "음성/자막 굽기", "완성본이 나왔습니다");
     rBtn.onclick = () => runChain(RESUB, rBtn, rLab, [bgm, sBtn, pBtn, bBtn],
@@ -194,7 +209,7 @@ export const meta = {
     mark();
     window.addEventListener("focus", mark);
 
-    return [view, print, bgm, sBtn, pBtn, dictBtn, eBtn, chip, bBtn, rBtn, dBtn, next];
+    return [view, print, bgm, sBtn, pBtn, dictBtn, eBtn, aBtn, chip, bBtn, rBtn, dBtn, next];
   },
 };
 
