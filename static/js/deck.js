@@ -674,11 +674,34 @@ export async function mount(root, ctx) {
   page.appendChild(rvHost);
 
   /* 검수표에서 장을 누르면 — 그 장을 열고 **발음 칸**에 커서를 둔다 */
-  function gotoPron(no) {
+  function gotoPron(no, m) {
     if (!byNo[no]) { toast(`${no}장이 덱에 없습니다(뺀 장일 수 있습니다)`, "err"); return; }
     show(no);
     const ta = body.querySelector(".dc-pron");
     if (!ta) return;
+    /* 집 검수에서 적어 온 「이렇게 읽기」 — 발음 칸 바로 위에 띄운다. 칸을 대신 고치지는
+       않는다: 자막 한 문장(큐)과 발음 칸의 문장이 늘 짝지어지지 않아서, 사람이 보고 고친다. */
+    body.querySelector(".dc-home")?.remove();
+    if (m && (m.say || m.memo)) {
+      const box = el("div", "dc-sug dc-home");
+      box.appendChild(el("div", "dc-home-h", `집 검수 · ${no}장 「${m.text || ""}」`));
+      if (m.say) box.appendChild(el("div", "dc-home-say", `이렇게 읽기 → ${m.say}`));
+      if (m.memo) box.appendChild(el("div", "dc-home-memo", `메모 · ${m.memo}`));
+      const row = el("div", "dc-sug-bar");
+      if (m.say) {
+        const cp = el("button", "btn sm", "읽기 복사");
+        cp.type = "button";
+        cp.onclick = () => navigator.clipboard?.writeText(m.say)
+          .then(() => toast("복사했습니다 — 발음 칸의 그 문장 자리에 붙이세요"));
+        row.appendChild(cp);
+      }
+      const cl = el("button", "btn sm", "닫기");
+      cl.type = "button";
+      cl.onclick = () => box.remove();
+      row.appendChild(cl);
+      box.appendChild(row);
+      ta.before(box);
+    }
     ta.scrollIntoView({behavior: "smooth", block: "center"});
     ta.classList.remove("flash");
     void ta.offsetWidth;          // 같은 장을 다시 눌러도 깜빡이게

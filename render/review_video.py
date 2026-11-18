@@ -139,13 +139,15 @@ def save_marks(pid: int, slug: str, marks: List[Dict[str, Any]]) -> List[Dict[st
         except (TypeError, ValueError):
             continue
         memo = str(m.get("memo") or "")[:300]
+        say = str(m.get("say") or "")[:500]          # 「이렇게 읽기」 — 집 검수에서 적는다
         if (no, i) in seen:
-            # 같은 자리를 두 PC 에서 찍었으면 하나로 — 적어 둔 메모는 살린다
-            if memo and not seen[(no, i)]["memo"]:
-                seen[(no, i)]["memo"] = memo
+            # 같은 자리를 두 PC 에서 찍었으면 하나로 — 적어 둔 메모·읽기는 살린다
+            for k, val in (("memo", memo), ("say", say)):
+                if val and not seen[(no, i)].get(k):
+                    seen[(no, i)][k] = val
             continue
         one = {"no": no, "i": i, "t": round(t, 1),
-               "text": str(m.get("text") or "")[:200], "memo": memo}
+               "text": str(m.get("text") or "")[:200], "memo": memo, "say": say}
         seen[(no, i)] = one
         clean.append(one)
     clean.sort(key=lambda m: m["t"])
@@ -300,6 +302,7 @@ li{border-top:1px solid var(--line);padding:7px 2px;display:grid;grid-template-c
 li.flash{animation:f 1.2s}@keyframes f{from{background:var(--hl)}to{background:transparent}}
 li a{color:var(--acc);cursor:pointer;font-variant-numeric:tabular-nums;text-decoration:underline}
 li .tx{font-size:13.5px}li .tx b{margin-right:4px}
+li input.say{border-color:var(--acc)}
 li input{grid-column:2/4;font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
 li .x{border:0;background:none;color:var(--mut);padding:0 4px}
 .empty{color:var(--mut);font-size:13px;padding:8px 0}
@@ -318,7 +321,8 @@ li .x{border:0;background:none;color:var(--mut);padding:0 4px}
     <button class="pri" id="save">검수표 저장</button>
     <button id="clear">비우기</button></div>
   <ul id="list"></ul>
-  <div class="how">이상하게 들리는 곳에서 <kbd>M</kbd> 을 누르고, 칸에 무엇이 이상한지 적어 두세요.<br>
+  <div class="how">이상하게 들리는 곳에서 <kbd>M</kbd> 을 누르고, «이렇게 읽기» 칸에 소리 나는 대로 적어 두세요
+  (회사 PC 에서 그 장 발음 칸 위에 그대로 보입니다). 이유는 메모 칸에.<br>
   다 들었으면 «검수표 저장» — 저장 창에서 <b>이 html 이 있는 드라이브 폴더</b>를 고르세요.
   회사 PC 덱 화면의 «영상 보며 검수» 에 「드라이브에 새 검수표」로 뜹니다.<br>
   표시는 이 브라우저에도 남으므로 창을 닫았다 열어도 이어서 할 수 있습니다.</div>
@@ -350,9 +354,12 @@ function draw(flashKey) {
     tx.append(b, document.createTextNode(m.text || ""));
     const x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.title = "빼기";
     x.onclick = () => { marks = marks.filter((y) => y !== m); keep(); draw(); };
-    const memo = document.createElement("input"); memo.placeholder = "무엇이 이상한가 (예: 니은 디귿으로 읽어야)";
+    const say = document.createElement("input"); say.className = "say";
+    say.placeholder = "이렇게 읽기 — 소리 나는 대로 (예: 샵 쉼표 샵샵 영)";
+    say.value = m.say || ""; say.oninput = () => { m.say = say.value; keep(); };
+    const memo = document.createElement("input"); memo.placeholder = "메모 (무엇이 이상한가)";
     memo.value = m.memo || ""; memo.oninput = () => { m.memo = memo.value; keep(); };
-    li.append(a, tx, x, memo); ul.appendChild(li);
+    li.append(a, tx, x, say, memo); ul.appendChild(li);
   }
 }
 function mark() {
@@ -360,7 +367,7 @@ function mark() {
   const c = D.cues[at(Math.max(0, v.currentTime - LAG))];
   const k = c.no + ":" + c.i;
   if (!marks.some((m) => m.no + ":" + m.i === k)) {
-    marks.push({no: c.no, i: c.i, t: Math.round(v.currentTime * 10) / 10, text: c.text, memo: ""});
+    marks.push({no: c.no, i: c.i, t: Math.round(v.currentTime * 10) / 10, text: c.text, say: "", memo: ""});
     marks.sort((a, b) => a.t - b.t); keep();
   }
   draw(k);

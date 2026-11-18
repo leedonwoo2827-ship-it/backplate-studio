@@ -210,7 +210,7 @@ export function reviewPanel(goto) {
       const tx = el("a", "rv-tx");
       tx.append(el("b", null, `${m.no}장`), el("span", null, m.text || ""));
       tx.title = "그 장의 발음 칸으로 갑니다";
-      tx.onclick = () => goto(m.no);
+      tx.onclick = () => goto(m.no, m);
       const x = el("button", "rv-x", "✕");
       x.type = "button";
       x.title = "빼기";
@@ -222,6 +222,7 @@ export function reviewPanel(goto) {
         save();
       };
       li.append(t, tx, x);
+      if (m.say) li.appendChild(el("div", "rv-say", `이렇게 읽기 · ${m.say}`));
       if (m.memo) li.appendChild(el("div", "rv-memo", m.memo));
       list.appendChild(li);
     }
@@ -233,7 +234,7 @@ export function reviewPanel(goto) {
     const k = `${c.no}:${c.i}`;
     if (!marks.some((m) => `${m.no}:${m.i}` === k)) {
       marks.push({no: c.no, i: c.i, t: Math.round(P.time() * 10) / 10,
-                  text: c.text, memo: ""});
+                  text: c.text, say: "", memo: ""});
       marks.sort((a, b) => a.t - b.t);
       save();
     }
