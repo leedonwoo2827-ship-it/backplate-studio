@@ -26,7 +26,7 @@ from typing import Any, Dict, List
 
 from core import config, htmldoc, workspace as ws
 from pipeline.registry import ORDER, STAGES, cached_data, pron_ai_of, read_cache, write_cache
-from pipeline.s3a_imgprompt import labels_of
+from pipeline.s3a_imgprompt import labels_of, slide_id
 from pipeline.s3d_label_fit import merge_auto
 
 MD = re.compile(r"[*_`#>]|^\s*[-•]\s+", re.M)
@@ -201,7 +201,10 @@ def compose(pid: int, slug: str, project: Dict[str, Any]) -> tuple[Dict[str, Any
             # ★ 원장은 **이름표(data_id)가 키다** — 번호가 아니다. 번호는 앞에
             #   장 하나만 끼어들어도 전부 밀리지만 이름표는 안 밀린다
             #   (core/workspace.py 의 ledger_path 주석 참고).
-            s["labels"] = labels_of(_led.get(sl.get("data_id") or "") or {})
+            # ★ 이름표가 없는 원고는 번호로 만든 이름표(`slide_id`)가 원장 키다 — s3a·s3d 가
+            #   그렇게 쓰는데 여기만 data_id 를 봐서, 라벨 81장이 덱에서 통째로 빠졌다
+            #   (2026-11-19 · 컴활 1급 1과목).
+            s["labels"] = labels_of(_led.get(slide_id(slug, sl)) or {})
             merge_auto(s, key, _auto)
             if sl.get("media_kind") == "html":
                 # ★ **의도와 결과를 가른다.** `image_swap` 은 "이 장은 그림으로

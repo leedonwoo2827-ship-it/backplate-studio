@@ -1199,7 +1199,7 @@ def get_deck(pid: int) -> Dict[str, Any]:
             shots = [got["file"]]
         s["images"] = shots
         s["image"] = shots[0] if shots else ""
-        s["labels"] = imgprompt.labels_of(led.get(sl.get("data_id") or "") or {})
+        s["labels"] = imgprompt.labels_of(led.get(imgprompt.slide_id(slug, sl)) or {})
         # 라벨 자동 배치(s3d) — 원장 자리 위, 손편집 아래. 조립(s8)과 같은 함수다.
         label_fit.merge_auto(s, no, auto)
         # 손편집이 마지막에 이긴다
